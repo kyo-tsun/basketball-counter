@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<title>朝練シュートカウンター</title>
+
+<!-- ==========================================================================
+     PWA メタ情報（タスク 20.5 / 要件 15.1, 15.2）
+     参照先はすべて index.html と同一オリジンの相対パスであり、
+     外部オリジンのリソースは一切参照しない（要件 16.1, 16.3, 16.5）。
+     ========================================================================== -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#101418">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="朝練IN">
+<link rel="apple-touch-icon" href="./apple-touch-icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
+
+<style>
+/* ==========================================================================
+   目次
+   [1] デザイントークン（配色・寸法・文字高）
+   [2] ベース / リセット
+   [3] パネル（単一 DOM 内の画面切り替え）
+   [4] メイン画面: ヘッダー（メニュー名・タイマー・トグル・状態表示）
+   [5] メイン画面: アクティブ種目（6 項目）
+   [6] メイン画面: 全体進捗（テキスト + バー）
+   [7] メイン画面: 種目一覧
+   [8] 操作ボタン群 / 全カウント初期化
+   [9] フィードバック領域
+   [10] 履歴画面
+   [11] メニュー編集画面
+   [12] 確認ダイアログ
+   [13] レイアウト分岐（タスク 12.3 が追加）
+   ========================================================================== */
+
+/* ==========================================================================
+   [1] デザイントークン
+   - 配色はすべてカスタムプロパティ経由で参照する。
+   - 省電力モードの配色トークンは [data-theme="power"] 側で上書きする
+     （タスク 16.2 が値を確定させる。ここでは初期値のみ定義）。
+   - コントラスト比の要件: 通常テキスト 4.5:1 以上、アクティブ種目の Make /
+     種目名 / 全体進捗テキストは 7:1 以上、アクティブ行 / 非アクティブ行の
+     背景は 3:1 以上（要件 8.12, 10.6, 7.2, 8.8）。
+   ========================================================================== */
+:root {
+  /* --- 配色: 通常モード --------------------------------------------------- */
+  --c-bg: #101418;
+  --c-surface: #1b2127;
+  --c-surface-2: #232b32;
+  --c-border: #3a454e;
+  --c-text: #f2f5f7;
+  --c-text-dim: #c3ccd4;
+  --c-row-bg: #1b2127;
+  --c-row-active-bg: #e8edf2;
+  --c-row-active-text: #0b0f12;
+  --c-btn-bg: #2b353d;
+  --c-btn-text: #ffffff;
+  --c-btn-make-bg: #14532d;
+  --c-btn-miss-bg: #7f1d1d;
+  --c-btn-danger-bg: #5b1717;
+  --c-bar-track: #2b353d;
+  --c-bar-fill: #e8edf2;
+  --c-info: #dce6ee;
+  --c-warn: #f6e3b5;
+  --c-error: #f7c9c9;
+  --c-on-indicator: #cfe8d6;
+  --c-off-indicator: #9aa6ae;
+  --c-focus: #ffffff;
+
+  /* --- 文字高（画面短辺 = 1vmin 基準） ----------------------------------- */
+  --fs-make: 22vmin;        /* 要件 8.2: 短辺の 20〜30% */
+  --fs-drill-name: 7vmin;   /* 要件 8.3: 短辺の 5〜10% */
+  --fs-menu-name: 3.5vmin;  /* 要件 8.13: 短辺の 2.5〜5% */
+  --fs-progress: 5vmin;
+  --fs-meta: 4vmin;
+  --fs-body: 15px;
+  --fs-small: 13px;
+
+  /* --- 寸法 -------------------------------------------------------------- */
+  --tap-min: 72px;          /* 要件 7.3, 10.1: タップ領域の 1 辺の最小値 */
+  --gap-btn: 12px;          /* 要件 7.3: 隣接操作ボタン間 8px 以上 */
+  --gap-danger: 28px;       /* 要件 7.8: 初期化ボタンと最近接ボタン間 24px 以上 */
+  --radius: 10px;
+  --pad-panel: 10px;
+}
+
+/* 省電力モード（要件 10.2: 背景 #000000、前景は無彩色系）
+   タスク 16.2 でトークン値と検証を確定させる。 */
+:root[data-theme="power"] {
+  --c-bg: #000000;
+  --c-surface: #000000;
+  --c-surface-2: #0d0d0d;
+  --c-border: #4d4d4d;
+  --c-text: #e6e6e6;
+  --c-text-dim: #bdbdbd;
+  --c-row-bg: #000000;
+  --c-row-active-bg: #d9d9d9;
+  --c-row-active-text: #000000;
+  --c-btn-bg: #1a1a1a;
+  --c-btn-text: #e6e6e6;
+  --c-btn-make-bg: #1a1a1a;
+  --c-btn-miss-bg: #1a1a1a;
+  --c-btn-danger-bg: #262626;
+  --c-bar-track: #262626;
+  --c-bar-fill: #d9d9d9;
+  --c-info: #e6e6e6;
+  --c-warn: #e6e6e6;
+  --c-error: #e6e6e6;
+  --c-on-indicator: #e6e6e6;
+  --c-off-indicator: #8c8c8c;
+}
+
+/* 省電力モードではアニメーション・トランジション・影を出さない（要件 10.3） */
+:root[data-theme="power"] * {
+  transition: none !important;
+  animation: none !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+/* ==========================================================================
+   [2] ベース / リセット
+   ========================================================================== */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  font-size: var(--fs-body);
+  line-height: 1.3;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+[hidden] { display: none !important; }
+
+button {
+  font: inherit;
+  color: var(--c-btn-text);
+  background: var(--c-btn-bg);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+button:focus-visible,
+input:focus-visible,
+li:focus-visible {
+  outline: 3px solid var(--c-focus);
+  outline-offset: 2px;
+}
+
+input, select {
+  font: inherit;
+  color: var(--c-text);
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  padding: 8px;
+  min-height: 44px;
+}
+
+ul, ol { list-style: none; margin: 0; padding: 0; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ==========================================================================
+   [3] パネル（メイン / 履歴 / メニュー編集。ページ遷移は行わない）
+   ========================================================================== */
+#app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--pad-panel);
+}
+
+.panel-title {
+  margin: 0;
+  font-size: var(--fs-meta);
+  font-weight: 700;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.nav-btn {
+  min-height: 44px;
+  padding: 0 12px;
+}
+
+/* ==========================================================================
+   [4] メイン画面: ヘッダー（メニュー名・経過時間・トグル・状態表示）
+   ========================================================================== */
+/* 左列に「メニュー名 + 経過時間 / 状態表示 / セッション操作」を積み、
+   右列にトグル 2 個（1 辺 72px 以上。要件 10.1）を置く。
+   こうすると要件 7.3 / 10.1 のタップ領域を保ったままヘッダー高さが
+   トグルの 72px に収まり、320×568 でも規定要素がスクロールなしに入る。 */
+#main-head {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "title   toggles"
+    "status  toggles"
+    "session toggles";
+  align-items: center;
+  gap: 4px 8px;
+}
+
+#head-title {
+  grid-area: title;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+#menu-name {
+  font-size: var(--fs-menu-name);  /* 要件 8.13 */
+  font-weight: 700;
+  color: var(--c-text);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#elapsed-time {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  color: var(--c-text);
+}
+
+#head-indicators {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-small);
+  color: var(--c-text-dim);
+  min-height: 1em;
+}
+
+.indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--c-off-indicator);
+}
+
+.indicator[data-state="on"],
+.indicator[data-state="recognizing"],
+.indicator[data-state="held"] {
+  color: var(--c-on-indicator);
+}
+
+#head-toggles {
+  grid-area: toggles;
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+/* 要件 2.1 / 10.1: トグルは 72px 以上のタップ領域を持つ */
+.toggle {
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: var(--fs-small);
+  line-height: 1.15;
+  text-align: center;
+}
+
+.toggle[aria-pressed="true"] {
+  background: var(--c-row-active-bg);
+  color: var(--c-row-active-text);
+  border-color: var(--c-row-active-bg);
+}
+
+.toggle:disabled {
+  opacity: 1;
+  color: var(--c-off-indicator);
+  border-style: dashed;
+  cursor: default;
+}
+
+.toggle-state { font-weight: 700; }
+
+/* 5 個を等幅 1 行に収める（狭い端末でも折り返して高さを増やさない） */
+#session-controls {
+  grid-area: session;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  min-width: 0;
+}
+
+.session-btn,
+#session-controls .nav-btn {
+  min-height: 40px;
+  padding: 0 4px;
+  font-size: var(--fs-small);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ==========================================================================
+   [5] メイン画面: アクティブ種目（要件 8.1 の 6 項目）
+   ========================================================================== */
+#active-drill {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "section  meta"
+    "name     meta"
+    "make     meta";
+  align-items: center;
+  column-gap: 10px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+}
+
+#active-section {
+  grid-area: section;
+  font-size: var(--fs-meta);
+  color: var(--c-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#active-name {
+  grid-area: name;
+  font-size: var(--fs-drill-name);  /* 要件 8.3 */
+  font-weight: 700;
+  color: var(--c-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#active-make {
+  grid-area: make;
+  font-size: var(--fs-make);        /* 要件 8.2 */
+  font-weight: 800;
+  line-height: 0.95;
+  color: var(--c-text);
+  font-variant-numeric: tabular-nums;
+}
+
+#active-meta {
+  grid-area: meta;
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+  font-size: var(--fs-meta);
+  color: var(--c-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+#active-meta b { color: var(--c-text); font-variant-numeric: tabular-nums; }
+
+/* 要件 4.9 / 4.12: 目標達成の識別表示 */
+#active-drill[data-achieved="true"] #active-make,
+.drill-row[data-achieved="true"] .drill-make {
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.08em;
+}
+
+#active-drill[data-achieved="true"] {
+  border-color: var(--c-text);
+  border-width: 3px;
+}
+
+/* ==========================================================================
+   [6] メイン画面: 全体進捗（要件 8.4, 8.5）
+   ========================================================================== */
+#progress-block { flex: 0 0 auto; }
+
+#progress-text {
+  font-size: var(--fs-progress);
+  font-weight: 700;
+  color: var(--c-text);
+  font-variant-numeric: tabular-nums;
+}
+
+#progress-bar {
+  height: 14px;
+  margin-top: 4px;
+  background: var(--c-bar-track);
+  border: 1px solid var(--c-border);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+#progress-bar-fill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: var(--c-bar-fill);
+}
+
+/* ==========================================================================
+   [7] メイン画面: 種目一覧（要件 8.7, 8.8, 8.9, 8.10）
+   data-mode="list"      … 種目 1 件ごとの行
+   data-mode="aggregate" … section 単位の集約行（タスク 12.3 が切り替える）
+   ========================================================================== */
+#drill-list-wrap {
+  flex: 1 1 auto;
+  min-height: 56px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+}
+
+.drill-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 10px;
+  background: var(--c-row-bg);
+  color: var(--c-text);
+  border-bottom: 1px solid var(--c-border);
+  cursor: pointer;
+}
+
+.drill-row:last-child { border-bottom: 0; }
+
+/* 要件 8.8: アクティブ行と非アクティブ行の背景コントラスト比 3:1 以上 */
+.drill-row[aria-current="true"] {
+  background: var(--c-row-active-bg);
+  color: var(--c-row-active-text);
+  font-weight: 700;
+}
+
+.drill-section {
+  font-size: var(--fs-small);
+  opacity: 0.95;
+  flex: 0 0 auto;
+  max-width: 30%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drill-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drill-make {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.drill-rate {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-small);
+  min-width: 4.5em;
+  text-align: right;
+}
+
+/* ==========================================================================
+   [8] 操作ボタン群 / 全カウント初期化（要件 7.1〜7.3, 7.8）
+   ========================================================================== */
+#op-buttons {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(var(--tap-min), 1fr));
+  gap: var(--gap-btn);
+}
+
+.op-btn {
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 要件 7.6: タップ受付の視覚的変化 */
+.op-btn[data-pressed="true"],
+.op-btn:active {
+  filter: brightness(1.6);
+}
+
+#btn-make { background: var(--c-btn-make-bg); }
+#btn-miss { background: var(--c-btn-miss-bg); }
+
+#danger-zone {
+  flex: 0 0 auto;
+  margin-top: var(--gap-danger);   /* 要件 7.8: 24px 以上の間隔 */
+  display: flex;
+  justify-content: center;
+}
+
+#btn-reset-counts {
+  min-height: 48px;
+  padding: 0 16px;
+  background: var(--c-btn-danger-bg);
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   [9] フィードバック領域（要件 2.4, 2.9, 12.7 / showMessage の単一経路）
+   ========================================================================== */
+#feedback-area {
+  flex: 0 0 auto;
+  min-height: 3.4em;
+  display: grid;
+  gap: 2px;
+  padding: 4px 8px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  font-size: var(--fs-small);
+}
+
+/* 確定テキスト（要件 2.4）と暫定テキスト（要件 2.9）を視覚的に区別する */
+#feedback-final {
+  color: var(--c-text);
+  font-weight: 700;
+}
+
+#feedback-interim {
+  color: var(--c-text-dim);
+  font-style: italic;
+}
+
+#feedback-message { color: var(--c-info); }
+#feedback-message[data-kind="warn"] { color: var(--c-warn); font-weight: 700; }
+#feedback-message[data-kind="error"] { color: var(--c-error); font-weight: 700; }
+
+/* ==========================================================================
+   [10] 履歴画面（要件 14.2〜14.4, 14.8）
+   ========================================================================== */
+.history-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  padding: 8px 10px;
+  min-height: 56px;
+  background: var(--c-row-bg);
+  border-bottom: 1px solid var(--c-border);
+  cursor: pointer;
+}
+
+.history-when { font-weight: 700; font-variant-numeric: tabular-nums; }
+.history-menu-name { color: var(--c-text-dim); }
+.history-stats { font-variant-numeric: tabular-nums; text-align: right; }
+.history-achieved { font-weight: 700; }
+
+#history-empty { padding: 12px; color: var(--c-text-dim); }
+
+#history-detail {
+  border-top: 1px solid var(--c-border);
+  padding-top: 6px;
+}
+
+.history-detail-row {
+  display: flex;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--c-border);
+  font-variant-numeric: tabular-nums;
+}
+
+.history-detail-row .drill-name { font-variant-numeric: normal; }
+
+#history-detail-actions { display: flex; gap: var(--gap-btn); padding: 8px 0; }
+
+/* ==========================================================================
+   [11] メニュー編集画面（要件 17, 18）
+   ========================================================================== */
+.menu-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  padding: 8px 10px;
+  min-height: 48px;
+  background: var(--c-row-bg);
+  border-bottom: 1px solid var(--c-border);
+  cursor: pointer;
+}
+
+/* 要件 18.16: 選択中メニュー行を 3:1 以上のコントラストで区別 */
+.menu-row[aria-current="true"] {
+  background: var(--c-row-active-bg);
+  color: var(--c-row-active-text);
+  font-weight: 700;
+}
+
+.menu-row-meta { font-variant-numeric: tabular-nums; text-align: right; }
+
+.menu-actions,
+.drill-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-btn);
+  padding: 6px 0;
+}
+
+.menu-actions button,
+.drill-editor-actions button {
+  min-height: 44px;
+  padding: 0 12px;
+}
+
+.editor-section { padding: 6px 0; }
+
+.editor-section > h3 {
+  margin: 4px 0;
+  font-size: var(--fs-body);
+}
+
+.drill-editor-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 8px;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--c-row-bg);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.drill-editor-row .row-buttons { display: flex; gap: 6px; }
+
+.drill-editor-row .row-buttons button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+#drill-form {
+  display: grid;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+#drill-form label { display: grid; gap: 4px; font-size: var(--fs-small); }
+
+#menu-violations {
+  min-height: 1.4em;
+  padding: 4px 0;
+  color: var(--c-warn);
+  font-weight: 700;
+  font-size: var(--fs-small);
+}
+
+/* ==========================================================================
+   [12] 確認ダイアログ（要件 7.9, 17.11, 17.15, 18.9）
+   ========================================================================== */
+#confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.72);
+  z-index: 10;
+}
+
+#confirm-dialog {
+  width: 100%;
+  max-width: 420px;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+}
+
+#confirm-title { margin: 0; font-size: var(--fs-meta); }
+#confirm-message { margin: 0; color: var(--c-text); }
+
+#confirm-actions {
+  display: flex;
+  gap: var(--gap-btn);
+  justify-content: flex-end;
+}
+
+#confirm-actions button {
+  min-height: 48px;
+  padding: 0 16px;
+  font-weight: 700;
+}
+
+#btn-confirm-ok { background: var(--c-btn-danger-bg); }
+
+/* ==========================================================================
+   [13] レイアウト分岐（タスク 12.3）
+   - 縦向きで長辺 568px 以上: 規定要素をスクロールなし表示し、
+     種目一覧のみ縦スクロール領域とする（要件 8.9）
+   - 縦向きで長辺 568px 未満: 種目一覧を section 単位の集約表示へ切り替える
+     （要件 8.10。形式の決定は app.js の layoutModeFor が行い、DOM 側は
+       #drill-list[data-mode="aggregate"] で表現する）
+   - 幅 > 高さ（横向き）: 規定要素をスクロールなし表示（要件 8.11）
+
+   「スクロールなし表示」の担保:
+     html, body は overflow:hidden、.panel は height:100% の縦 flex であり、
+     種目一覧のラッパ（#drill-list-wrap）だけが flex:1 1 auto かつ
+     overflow-y:auto である。したがって規定要素（要件 8.9 が列挙する 6 項目・
+     メニュー名・全体進捗テキスト・全体進捗バー・5 個の操作ボタン）は常に
+     ビューポート内に収まり、余剰は種目一覧の内部スクロールに吸収される。
+     短い端末では文字高を短辺比の下限側（要件 8.2 の 20%、8.3 の 5%、
+     8.13 の 2.5% 以上）へ寄せ、行の余白を詰めて高さを作る。
+   ========================================================================== */
+
+/* 集約行は「section 名」と「Make 合計 / targetMake 合計」の 2 列（要件 8.10） */
+#drill-list[data-mode="aggregate"] .drill-row {
+  justify-content: space-between;
+  cursor: default;
+}
+
+#drill-list[data-mode="aggregate"] .drill-row .drill-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#drill-list[data-mode="aggregate"] .drill-row .drill-make {
+  flex: 0 0 auto;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- 縦向きで高さが 700px 以下（320×568 を含む）: 詰めた配置 -------------- */
+@media (orientation: portrait) and (max-height: 700px) {
+  :root {
+    --fs-make: 21vmin;        /* 要件 8.2 の下限側（20% 以上） */
+    --fs-drill-name: 5.5vmin; /* 要件 8.3 の下限側（5% 以上） */
+    --fs-menu-name: 3vmin;    /* 要件 8.13 の下限側（2.5% 以上） */
+    --fs-progress: 4.2vmin;
+    --fs-meta: 3.4vmin;
+    --fs-small: 12px;
+    --gap-danger: 24px;       /* 要件 7.8 の下限 */
+    --pad-panel: 8px;
+  }
+
+  .panel { gap: 3px; }
+  #active-drill { padding: 4px 8px; }
+  #progress-bar { height: 12px; margin-top: 3px; }
+  #drill-list-wrap { min-height: 44px; }
+  .drill-row { min-height: 36px; padding: 4px 8px; }
+  #btn-reset-counts { min-height: 40px; }
+  #feedback-area { min-height: 2.2em; padding: 3px 6px; }
+  .session-btn,
+  #session-controls .nav-btn { min-height: 36px; }
+}
+
+/* --- 縦向きで長辺 568px 未満: 集約表示 + さらに詰める（要件 8.10）--------- */
+@media (orientation: portrait) and (max-height: 567px) {
+  :root {
+    --fs-make: 20vmin;
+    --fs-drill-name: 5vmin;
+    --fs-menu-name: 2.6vmin;
+    --fs-progress: 4vmin;
+    --fs-meta: 3vmin;
+    --fs-small: 11px;
+    --pad-panel: 6px;
+  }
+
+  /* セクション名と種目名を 1 行に並べて高さを 1 行分削る（6 項目は維持） */
+  #active-drill {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "section name meta"
+      "make    make meta";
+    column-gap: 8px;
+    padding: 3px 8px;
+  }
+  #active-make { line-height: 0.9; }
+
+  #drill-list-wrap { min-height: 32px; }
+  .drill-row { min-height: 30px; padding: 2px 8px; }
+
+  #feedback-area { min-height: 1.6em; padding: 2px 6px; font-size: var(--fs-small); }
+  #btn-reset-counts { min-height: 36px; }
+  .session-btn,
+  #session-controls .nav-btn { min-height: 32px; }
+}
+
+/* --- 横向き（幅 > 高さ）: 3 カラムで規定要素を収める（要件 8.11）---------- */
+@media (orientation: landscape) {
+  :root {
+    --fs-make: 21vmin;
+    --fs-drill-name: 6vmin;
+    --fs-menu-name: 3vmin;
+    --fs-progress: 4.5vmin;
+    --fs-meta: 3.4vmin;
+    --gap-danger: 24px;
+    --pad-panel: 8px;
+  }
+
+  #panel-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "head     head     head"
+      "active   ops      list"
+      "progress danger   list"
+      "feedback feedback list";
+    align-content: start;
+    gap: 4px 10px;
+  }
+
+  #main-head { grid-area: head; }
+  #active-drill { grid-area: active; align-self: start; }
+  #progress-block { grid-area: progress; align-self: end; }
+  #op-buttons { grid-area: ops; align-self: start; }
+  #danger-zone {
+    grid-area: danger;
+    margin-top: var(--gap-danger);   /* 要件 7.8: 24px 以上 */
+  }
+  #feedback-area { grid-area: feedback; }
+  #drill-list-wrap { grid-area: list; min-height: 0; }
+  #btn-reset-counts { min-height: 40px; }
+  #feedback-area { min-height: 2.2em; }
+
+  .panel { gap: 4px; }
+  #active-drill { padding: 4px 8px; }
+  .drill-row { min-height: 34px; padding: 3px 8px; }
+  .session-btn,
+  #session-controls .nav-btn { min-height: 36px; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- ==========================================================================
+     id 契約（app.js が参照する要素の一覧）
+     この一覧に無い id を app.js から参照しない。追加する場合はここに記載する。
+
+     [パネル / ナビゲーション]
+       app                  … アプリ全体のルート
+       panel-main           … メイン画面パネル
+       panel-history        … 履歴画面パネル
+       panel-menu           … メニュー編集画面パネル
+       btn-open-history     … 履歴画面を開く
+       btn-open-menu        … メニュー編集画面を開く
+       btn-history-back     … 履歴画面からメイン画面へ戻る
+       btn-menu-back        … メニュー編集画面からメイン画面へ戻る
+
+     [メイン画面: ヘッダー]
+       menu-name            … 選択中メニュー名（要件 8.13）
+       elapsed-time         … 経過時間 mm:ss / h:mm:ss（要件 11.3）
+       speech-status        … 音声認識状態（認識中 / 再開待機中 / 停止中。要件 2.5）
+       speech-status-text   … 上記の文字表現
+       wakelock-indicator   … スリープ防止インジケーター（要件 9.3）
+       toggle-voice         … 音声認識トグル（aria-pressed。要件 2.1）
+       toggle-voice-state   … トグルの状態文字
+       toggle-power-save    … 省電力モードトグル（aria-pressed。要件 10.1）
+       toggle-power-state   … トグルの状態文字
+       btn-session-start    … 練習開始（要件 11.1, 9.1）
+       btn-session-pause    … 一時停止 / 再開（要件 11.4, 11.5）
+       btn-session-end      … 練習終了（要件 11.7, 14.1）
+
+     [メイン画面: アクティブ種目の 6 項目（要件 8.1）]
+       active-drill         … 6 項目のコンテナ（data-achieved で達成表示）
+       active-section       … セクション名
+       active-name          … 種目名
+       active-target        … 目標成功数
+       active-make          … 現在の Make
+       active-attempt       … 現在の Attempt
+       active-rate          … 成功率（Attempt 0 は --%）
+
+     [メイン画面: 全体進捗]
+       progress-text        … 「{全体成功数} / {目標合計}本 IN」（要件 8.4）
+       progress-bar         … role="progressbar" のトラック
+       progress-bar-fill    … 充填要素（style.width を 0〜100% で設定。要件 8.5）
+
+     [メイン画面: 種目一覧]
+       drill-list-wrap      … 縦スクロール領域（要件 8.9, 8.11）
+       drill-list           … 行のコンテナ。data-mode="list" | "aggregate"（要件 8.10）
+       tpl-drill-row        … 種目行のテンプレート
+       tpl-aggregate-row    … section 集約行のテンプレート
+
+     [メイン画面: 操作ボタン（要件 7.1）]
+       op-buttons           … 5 個の操作ボタンのコンテナ
+       btn-make / btn-miss / btn-next / btn-prev / btn-undo
+       danger-zone          … 初期化ボタンの独立領域（要件 7.8）
+       btn-reset-counts     … 全カウント初期化（要件 7.9, 7.10）
+
+     [メイン画面: フィードバック領域（要件 2.4, 2.9）]
+       feedback-area        … aria-live 領域
+       feedback-final       … 確定テキスト
+       feedback-interim     … 暫定テキスト
+       feedback-message     … showMessage の出力先（data-kind=info|warn|error）
+
+     [履歴画面]
+       history-list         … 一覧行のコンテナ（要件 14.2, 14.3）
+       history-empty        … 履歴 0 件のメッセージ（要件 14.8）
+       history-detail       … 詳細セクション
+       history-detail-title … 詳細の見出し
+       history-detail-list  … 全種目スナップショットの行（要件 14.4）
+       btn-history-delete   … 選択レコードの削除（要件 14.7）
+       btn-history-detail-close … 詳細を閉じる
+       tpl-history-row      … 一覧行のテンプレート
+       tpl-history-detail-row … 詳細行のテンプレート
+
+     [メニュー編集画面]
+       menu-list            … メニュー一覧（要件 18.16）
+       input-menu-name      … メニュー名の入力
+       btn-menu-create / btn-menu-duplicate / btn-menu-rename / btn-menu-delete
+       btn-menu-switch      … 選択中メニューの切り替え（要件 18.9）
+       drill-editor-list    … 種目編集行のコンテナ（要件 17.1）
+       btn-drill-add        … 種目の追加
+       btn-menu-reset-default … 既定メニュー内容へのリセット（要件 17.15, 17.16）
+       drill-form           … 種目の編集フォーム
+       input-drill-name / input-drill-section / input-drill-target
+       btn-drill-save / btn-drill-cancel
+       menu-violations      … 検証違反のメッセージ（要件 17.7, 18.4）
+       tpl-menu-row         … メニュー行のテンプレート
+       tpl-drill-editor-row … 種目編集行のテンプレート
+
+     [確認ダイアログ（要件 7.9, 17.11, 17.15, 18.9）]
+       confirm-backdrop     … 背景（非表示時は hidden 属性）
+       confirm-dialog       … role="dialog"
+       confirm-title        … 見出し
+       confirm-message      … 本文
+       btn-confirm-ok       … 実行
+       btn-confirm-cancel   … 取り消し
+
+     [レイアウト専用（CSS からのみ参照。app.js は参照しない）]
+       main-head, head-title, head-indicators, head-toggles, session-controls,
+       active-meta, progress-block, history-detail-actions, confirm-actions
+     ========================================================================== -->
+
+<div id="app">
+
+  <!-- ====================================================================
+       メイン画面
+       ==================================================================== -->
+  <section id="panel-main" class="panel" aria-label="計測画面">
+
+    <!-- [ヘッダー] メニュー名 / 経過時間 / 状態表示 / トグル / セッション操作 -->
+    <header id="main-head">
+      <div id="head-title">
+        <h1 id="menu-name">朝練125本IN</h1>
+        <span id="elapsed-time" aria-label="経過時間">00:00</span>
+      </div>
+
+      <div id="head-indicators">
+        <span id="speech-status" class="indicator" data-state="stopped" role="status">
+          <span aria-hidden="true">●</span><span id="speech-status-text">停止中</span>
+        </span>
+        <span id="wakelock-indicator" class="indicator" data-state="off" role="status" hidden>
+          <span aria-hidden="true">●</span><span>スリープ防止</span>
+        </span>
+      </div>
+
+      <div id="head-toggles">
+        <button id="toggle-voice" class="toggle" type="button" aria-pressed="false"
+                aria-label="音声認識の有効と無効を切り替える">
+          <span aria-hidden="true">音声</span>
+          <span id="toggle-voice-state" class="toggle-state">OFF</span>
+        </button>
+        <button id="toggle-power-save" class="toggle" type="button" aria-pressed="false"
+                aria-label="省電力モードの有効と無効を切り替える">
+          <span aria-hidden="true">省電力</span>
+          <span id="toggle-power-state" class="toggle-state">OFF</span>
+        </button>
+      </div>
+
+      <div id="session-controls">
+        <button id="btn-session-start" class="session-btn" type="button" aria-label="練習を開始する">開始</button>
+        <button id="btn-session-pause" class="session-btn" type="button" aria-label="計測を一時停止または再開する">一時停止</button>
+        <button id="btn-session-end" class="session-btn" type="button" aria-label="練習を終了して履歴に保存する">終了</button>
+        <button id="btn-open-history" class="nav-btn" type="button" aria-label="練習履歴を表示する">履歴</button>
+        <button id="btn-open-menu" class="nav-btn" type="button" aria-label="練習メニューを編集する">メニュー</button>
+      </div>
+    </header>
+
+    <!-- [アクティブ種目] 要件 8.1 の 6 項目 -->
+    <div id="active-drill" data-achieved="false" aria-label="アクティブ種目">
+      <div id="active-section">近距離</div>
+      <div id="active-name">ゴール下</div>
+      <div id="active-make" aria-label="成功数">0</div>
+      <div id="active-meta">
+        <div>目標 <b id="active-target">10</b></div>
+        <div>試投 <b id="active-attempt">0</b></div>
+        <div>成功率 <b id="active-rate">--%</b></div>
+      </div>
+    </div>
+
+    <!-- [全体進捗] 要件 8.4, 8.5 -->
+    <div id="progress-block">
+      <div id="progress-text">0 / 125本 IN</div>
+      <div id="progress-bar" role="progressbar" aria-labelledby="progress-text"
+           aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <span id="progress-bar-fill"></span>
+      </div>
+    </div>
+
+    <!-- [種目一覧] 要件 8.7〜8.10 -->
+    <div id="drill-list-wrap">
+      <ul id="drill-list" data-mode="list" aria-label="種目一覧"></ul>
+    </div>
+
+    <!-- [操作ボタン] 要件 7.1〜7.7 -->
+    <div id="op-buttons" aria-label="操作ボタン">
+      <button id="btn-make" class="op-btn" type="button" aria-label="成功を1回記録する">成功</button>
+      <button id="btn-miss" class="op-btn" type="button" aria-label="失敗を1回記録する">失敗</button>
+      <button id="btn-undo" class="op-btn" type="button" aria-label="直前の記録を取り消す">取り消し</button>
+      <button id="btn-prev" class="op-btn" type="button" aria-label="前の種目へ戻る">戻る</button>
+      <button id="btn-next" class="op-btn" type="button" aria-label="次の種目へ進む">次へ</button>
+    </div>
+
+    <!-- [全カウント初期化] 要件 7.8〜7.10 -->
+    <div id="danger-zone">
+      <button id="btn-reset-counts" type="button"
+              aria-label="全種目の成功数と試投数を初期化する">全カウント初期化</button>
+    </div>
+
+    <!-- [フィードバック領域] 要件 2.4, 2.9, 12.7 -->
+    <div id="feedback-area" role="status" aria-live="polite">
+      <div id="feedback-final"></div>
+      <div id="feedback-interim"></div>
+      <div id="feedback-message" data-kind="info"></div>
+    </div>
+  </section>
+
+  <!-- ====================================================================
+       履歴画面
+       ==================================================================== -->
+  <section id="panel-history" class="panel" aria-label="練習履歴" hidden>
+    <div class="panel-head">
+      <h2 class="panel-title">練習履歴</h2>
+      <button id="btn-history-back" class="nav-btn" type="button" aria-label="計測画面に戻る">戻る</button>
+    </div>
+
+    <div class="panel-body">
+      <p id="history-empty" hidden>保存された練習履歴はありません。</p>
+      <ul id="history-list" aria-label="履歴一覧"></ul>
+
+      <div id="history-detail" hidden>
+        <h3 id="history-detail-title" class="panel-title">履歴の詳細</h3>
+        <ul id="history-detail-list" aria-label="種目別の記録"></ul>
+        <div id="history-detail-actions">
+          <button id="btn-history-delete" type="button" aria-label="この履歴を削除する">削除</button>
+          <button id="btn-history-detail-close" type="button" aria-label="詳細を閉じる">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================================
+       メニュー編集画面
+       ==================================================================== -->
+  <section id="panel-menu" class="panel" aria-label="練習メニューの編集" hidden>
+    <div class="panel-head">
+      <h2 class="panel-title">練習メニュー</h2>
+      <button id="btn-menu-back" class="nav-btn" type="button" aria-label="計測画面に戻る">戻る</button>
+    </div>
+
+    <div class="panel-body">
+      <p id="menu-violations" role="status" aria-live="polite"></p>
+
+      <!-- [メニュー一覧と操作] 要件 18.1〜18.4, 18.16 -->
+      <div class="editor-section">
+        <h3>保存済みメニュー</h3>
+        <ul id="menu-list" aria-label="保存済みメニュー一覧"></ul>
+        <label for="input-menu-name" class="visually-hidden">メニュー名</label>
+        <input id="input-menu-name" type="text" maxlength="30" placeholder="メニュー名（1〜30文字）">
+        <div class="menu-actions">
+          <button id="btn-menu-create" type="button" aria-label="メニューを新規作成する">新規作成</button>
+          <button id="btn-menu-duplicate" type="button" aria-label="選択したメニューを複製する">複製</button>
+          <button id="btn-menu-rename" type="button" aria-label="選択したメニューの名前を変更する">名称変更</button>
+          <button id="btn-menu-delete" type="button" aria-label="選択したメニューを削除する">削除</button>
+          <button id="btn-menu-switch" type="button" aria-label="選択したメニューに切り替える">切り替え</button>
+        </div>
+      </div>
+
+      <!-- [種目編集] 要件 17.1〜17.7, 17.15, 17.16 -->
+      <div class="editor-section">
+        <h3>選択中メニューの種目</h3>
+        <ul id="drill-editor-list" aria-label="種目の編集一覧"></ul>
+        <div class="drill-editor-actions">
+          <button id="btn-drill-add" type="button" aria-label="種目を追加する">種目を追加</button>
+          <button id="btn-menu-reset-default" type="button"
+                  aria-label="選択中メニューを既定の内容に戻す">既定メニューに戻す</button>
+        </div>
+
+        <div id="drill-form" hidden>
+          <label for="input-drill-name">種目名（1〜40文字）
+            <input id="input-drill-name" type="text" maxlength="40">
+          </label>
+          <label for="input-drill-section">セクション（0〜20文字・空欄可）
+            <input id="input-drill-section" type="text" maxlength="20">
+          </label>
+          <label for="input-drill-target">目標成功数（1〜99）
+            <input id="input-drill-target" type="number" min="1" max="99" step="1" inputmode="numeric">
+          </label>
+          <div class="drill-editor-actions">
+            <button id="btn-drill-save" type="button" aria-label="種目の編集内容を保存する">保存</button>
+            <button id="btn-drill-cancel" type="button" aria-label="種目の編集を取り消す">取り消し</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ====================================================================
+     確認ダイアログ（要件 7.9, 17.11, 17.15, 18.9）
+     ==================================================================== -->
+<div id="confirm-backdrop" hidden>
+  <div id="confirm-dialog" role="dialog" aria-modal="true"
+       aria-labelledby="confirm-title" aria-describedby="confirm-message">
+    <h2 id="confirm-title">確認</h2>
+    <p id="confirm-message"></p>
+    <div id="confirm-actions">
+      <button id="btn-confirm-cancel" type="button">やめる</button>
+      <button id="btn-confirm-ok" type="button">実行する</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================================
+     テンプレート（app.js が cloneNode して行を生成する）
+     ==================================================================== -->
+<template id="tpl-drill-row">
+  <li class="drill-row" role="button" tabindex="0" aria-current="false" data-achieved="false">
+    <span class="drill-section"></span>
+    <span class="drill-name"></span>
+    <span class="drill-make"></span>
+    <span class="drill-rate"></span>
+  </li>
+</template>
+
+<template id="tpl-aggregate-row">
+  <li class="drill-row" data-aggregate="true">
+    <span class="drill-name"></span>
+    <span class="drill-make"></span>
+  </li>
+</template>
+
+<template id="tpl-history-row">
+  <li class="history-row" role="button" tabindex="0">
+    <span class="history-when"></span>
+    <span class="history-stats"></span>
+    <span class="history-menu-name"></span>
+    <span class="history-achieved"></span>
+  </li>
+</template>
+
+<template id="tpl-history-detail-row">
+  <li class="history-detail-row">
+    <span class="drill-name"></span>
+    <span class="drill-make"></span>
+    <span class="drill-rate"></span>
+  </li>
+</template>
+
+<template id="tpl-menu-row">
+  <li class="menu-row" role="button" tabindex="0" aria-current="false">
+    <span class="menu-row-name"></span>
+    <span class="menu-row-meta"></span>
+  </li>
+</template>
+
+<template id="tpl-drill-editor-row">
+  <li class="drill-editor-row">
+    <span class="drill-editor-label"></span>
+    <span class="row-buttons">
+      <button type="button" data-action="edit" aria-label="この種目を編集する">編集</button>
+      <button type="button" data-action="up" aria-label="この種目を上に移動する">↑</button>
+      <button type="button" data-action="down" aria-label="この種目を下に移動する">↓</button>
+      <button type="button" data-action="remove" aria-label="この種目を削除する">削除</button>
+    </span>
+  </li>
+</template>
+
+<script src="./app.js"></script>
+</body>
+</html>

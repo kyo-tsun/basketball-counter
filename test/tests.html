@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>voice-shot-counter-pwa — テストランナー</title>
+<!--
+  test/tests.html — テストランナーの入口（設計「Testing Strategy」）
+
+  実行方法
+    1) file:// で直接開く            … spec-dom.js 以外はすべて実行できる
+    2) python3 -m http.server 等経由 … spec-dom.js を含む全件を実行できる
+       （spec-dom.js は ../index.html を同一オリジンの <iframe> に読み込むため、
+         file:// では同一オリジン制約により contentWindow へ触れない）
+
+  読み込み規約（要件 16-2 / 16-4）
+    - すべてのスクリプトは `type` 属性を持たないクラシックスクリプトとして読み込む。
+      本ファイルには `type` 属性を持つ要素も、`import` / `export` 構文も出現しない。
+    - 動的に挿入するスクリプト要素も `type` を設定しないため既定でクラシック扱いになる。
+    - ビルド工程・トランスパイル・パッケージマネージャを一切要求しない。
+
+  読み込み順（固定）
+    0) 例外トラップ（インライン）… 以降のすべての読み込みを監視する
+    1) ./pbt.js                  … 生成器・縮小器・実行器（window.pbt）
+    2) ./assert.js               … 等価比較とアサーション（globalThis.assert）
+    3) ../app.js                 … window.__VSC_TEST__ に純粋関数を公開する
+    4) ./spec-*.js               … 動的読み込み。読み込み時に自身のテストを実行する
+    最後に pbt.summary() を集計表示する。
+
+  ===== 未作成の spec ファイルへの耐性 =====
+  spec-count.js 〜 spec-dom.js は後続タスク（4.2 以降）が作成し、タスク 21.2 が
+  登録内容を確定させる。したがって本ファイルは「存在しない spec があっても実行が
+  中断しない」ことを要件とする。静的な script 要素（src 指定）では 404 を検知できないため、
+  spec のみ動的なスクリプト要素で 1 個ずつ読み込み、`onerror`（＝取得失敗）と
+  `onload`（＝取得成功）を区別して「読込済み / 未作成」を一覧表示する。
+  取得できた spec の実行中に例外が出た場合は、例外トラップが当該ファイル名に
+  紐づけて記録する（未作成と構文エラーを区別できる）。
+
+  ===== ../app.js の bootstrap() への耐性 =====
+  app.js は IIFE の末尾で bootstrap() を呼ぶ。現時点の bootstrap() は no-op だが、
+  タスク 21.1 以降は index.html にしか存在しない DOM 要素を参照し、localStorage と
+  Service Worker にも触れる。tests.html はアプリ本体の DOM を持たないため、
+  bootstrap() は将来的に例外を送出し得る。
+
+  本ファイルはこれを次の方針で扱う（app.js 側は変更しない）。
+    - app.js は `window.__VSC_TEST__ = testHook` を bootstrap() の**呼び出しより前**に
+      実行する。したがって bootstrap() が投げても純粋関数フックは公開済みであり、
+      プロパティテストの前提は崩れない。
+    - bootstrap() 内の未捕捉例外はスクリプト境界を越えないため、後続の
+      後続の script 要素の実行は中断しない。例外トラップが拾って画面に「環境の注意」
+      として出し、テスト結果の合否には算入しない。
+    - index.html の DOM を tests.html に複製することは行わない。複製は id の
+      重複と二重管理を招き、DOM 層の検証は設計どおり spec-dom.js が <iframe> で
+      読み込む ../index.html 自身に対して行う。
+    - bootstrap() が localStorage の `vsc:` 鍵に触れる場合、テスト実行が同一
+      オリジンのアプリ本体の保存内容を書き換え得る。実データを持つオリジンで
+      実行する際は注意する（Storage_Adapter の検証は偽 storage の注入で行う設計
+      であり、本ランナーは localStorage を操作しない）。
+    - 推奨（タスク 21.1 への申し送り）: bootstrap() 本体を try/catch で包み、
+      必須 DOM 要素が見つからない場合は早期 return する。そうすれば tests.html
+      でも app.js は無警告で読み込める。
+
+  ===== 乱数シードの再現 =====
+  pbt.js は読み込みごとに baseSeed を導出する。`?seed=<整数>` を付けて開くと
+  その値を baseSeed に固定して再実行できる（失敗時に表示される再現 URL を使う）。
+-->
+<style>
+  :root {
+    --bg: #12161a;
+    --surface: #1b2127;
+    --surface-2: #232b32;
+    --border: #3a454e;
+    --text: #f2f5f7;
+    --dim: #aab6bf;
+    --pass: #8fd9a8;
+    --fail: #f2a1a1;
+    --warn: #f6e3b5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 16px;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.6 -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  h2 { font-size: 14px; margin: 20px 0 8px; color: var(--dim); font-weight: 600; }
+  .sub { color: var(--dim); font-size: 12px; margin: 0 0 16px; }
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+  }
+  .counts { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; }
+  .counts div { white-space: nowrap; }
+  .counts b { font-size: 22px; font-variant-numeric: tabular-nums; }
+  .k { color: var(--dim); font-size: 12px; margin-right: 4px; }
+  .ok { color: var(--pass); }
+  .ng { color: var(--fail); }
+  .wa { color: var(--warn); }
+  code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  pre {
+    margin: 4px 0 0;
+    padding: 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li.spec, li.result {
+    border-bottom: 1px solid var(--border);
+    padding: 6px 0;
+  }
+  li.spec:last-child, li.result:last-child { border-bottom: 0; }
+  .badge {
+    display: inline-block;
+    min-width: 4.5em;
+    margin-right: 8px;
+    padding: 0 6px;
+    border-radius: 3px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    background: var(--surface-2);
+    color: var(--dim);
+  }
+  .badge.pass { color: #0b1a10; background: var(--pass); }
+  .badge.fail { color: #1a0b0b; background: var(--fail); }
+  .badge.miss { color: var(--warn); border: 1px solid var(--warn); }
+  .meta { color: var(--dim); font-size: 11px; margin-left: 4px; }
+  .field { margin-top: 6px; }
+  .field .k { display: block; }
+  a { color: var(--text); }
+  button {
+    font: inherit;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+  .actions { display: flex; gap: 8px; margin-top: 12px; }
+  .empty { color: var(--dim); }
+</style>
+</head>
+<body>
+
+<h1>voice-shot-counter-pwa — テストランナー</h1>
+<p class="sub">
+  プロパティテスト（17 件）と単体テストを集計する。spec-dom.js は
+  <code>python3 -m http.server</code> 等の簡易静的サーバー経由でのみ実行できる。
+</p>
+
+<div class="panel">
+  <div class="counts">
+    <div><span class="k">総数</span><b id="sum-total">0</b></div>
+    <div><span class="k">成功</span><b id="sum-passed" class="ok">0</b></div>
+    <div><span class="k">失敗</span><b id="sum-failed" class="ng">0</b></div>
+    <div><span class="k">乱数シード（baseSeed）</span><b id="sum-seed" class="mono">-</b></div>
+  </div>
+  <div class="field">
+    <span class="k">状態</span><span id="sum-status">初期化中…</span>
+  </div>
+  <div class="field">
+    <span class="k">同一シードでの再現</span>
+    <a id="sum-repro" class="mono" href="./tests.html">./tests.html?seed=…</a>
+  </div>
+  <div class="actions">
+    <button id="btn-rerun">再実行（新しいシード）</button>
+    <button id="btn-rerun-seed">再実行（同一シード）</button>
+  </div>
+</div>
+
+<h2>環境</h2>
+<div class="panel"><ul id="env-list"></ul></div>
+
+<h2>spec ファイルの読み込み</h2>
+<div class="panel"><ul id="spec-list"></ul></div>
+
+<h2>テスト結果</h2>
+<div class="panel"><ul id="result-list"><li class="empty" id="result-empty">まだ結果がない。</li></ul></div>
+
+<script>
+/*
+ * 例外トラップ。以降のすべてのスクリプト読み込み・実行を監視する。
+ * ../app.js の bootstrap() が DOM を参照して投げた場合や、spec ファイルの
+ * 構文エラー・トップレベル例外をここで捕らえ、テストの合否とは別枠で表示する。
+ * （リソース取得失敗は window へ伝播しないため、spec の 404 は
+ *   スクリプト要素の onerror で個別に検知する。）
+ */
+window.__VSC_RUNNER_ERRORS__ = [];
+window.__VSC_LOAD_CONTEXT__ = 'tests.html';
+window.addEventListener('error', function (ev) {
+  window.__VSC_RUNNER_ERRORS__.push({
+    where: window.__VSC_LOAD_CONTEXT__,
+    text: (ev && ev.message) ? String(ev.message) : '不明なエラー',
+    file: (ev && ev.filename) ? String(ev.filename) : '',
+    line: (ev && typeof ev.lineno === 'number') ? ev.lineno : null
+  });
+});
+window.addEventListener('unhandledrejection', function (ev) {
+  var reason = ev && ev.reason;
+  var text = (reason && reason.message) ? String(reason.message) : String(reason);
+  window.__VSC_RUNNER_ERRORS__.push({
+    where: window.__VSC_LOAD_CONTEXT__,
+    text: '未処理の Promise 拒否: ' + text,
+    file: '',
+    line: null
+  });
+});
+</script>
+
+<script src="./pbt.js"></script>
+<script src="./assert.js"></script>
+<script>window.__VSC_LOAD_CONTEXT__ = '../app.js';</script>
+<script src="../app.js"></script>
+<script>window.__VSC_LOAD_CONTEXT__ = 'tests.html';</script>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ----------------------------------------------------------------------
+   * spec ファイル一覧（設計「Testing Strategy」のディレクトリ構成と同順）。
+   * 未作成のものがあっても実行は中断しない。タスク 21.2 がこの一覧を確定する。
+   * -------------------------------------------------------------------- */
+  var SPEC_FILES = [
+    { file: 'spec-count.js', note: 'Property 1, 2, 3' },
+    { file: 'spec-serializer.js', note: 'Property 4, 5, 6, 7, 8, 9' },
+    { file: 'spec-cursor.js', note: 'Property 10, 11' },
+    { file: 'spec-timer.js', note: 'Property 12' },
+    { file: 'spec-command.js', note: 'Property 13, 14' },
+    { file: 'spec-display.js', note: 'Property 15, 16, 17' },
+    { file: 'spec-unit.js', note: '例示テスト・境界値テスト' },
+    { file: 'spec-dom.js', note: 'DOM 層の検証（静的サーバー必須）' }
+  ];
+
+  var el = {
+    total: document.getElementById('sum-total'),
+    passed: document.getElementById('sum-passed'),
+    failed: document.getElementById('sum-failed'),
+    seed: document.getElementById('sum-seed'),
+    status: document.getElementById('sum-status'),
+    repro: document.getElementById('sum-repro'),
+    env: document.getElementById('env-list'),
+    specs: document.getElementById('spec-list'),
+    results: document.getElementById('result-list'),
+    resultsEmpty: document.getElementById('result-empty'),
+    rerun: document.getElementById('btn-rerun'),
+    rerunSeed: document.getElementById('btn-rerun-seed')
+  };
+
+  /* ------------------------------------------------------------- DOM 補助 */
+
+  function add(parent, tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) { node.className = className; }
+    if (text !== undefined && text !== null) { node.textContent = String(text); }
+    parent.appendChild(node);
+    return node;
+  }
+
+  function field(parent, label, value, mono) {
+    var wrap = add(parent, 'div', 'field');
+    add(wrap, 'span', 'k', label);
+    if (mono) {
+      add(wrap, 'pre', 'mono', value);
+    } else {
+      add(wrap, 'span', null, value);
+    }
+    return wrap;
+  }
+
+  function setStatus(text, cls) {
+    el.status.textContent = text;
+    el.status.className = cls || '';
+  }
+
+  /* ------------------------------------------------------------ シード管理 */
+
+  function readSeedParam() {
+    var m = /[?&]seed=([0-9]+)/.exec(window.location.search || '');
+    if (!m) { return null; }
+    var n = Number(m[1]);
+    return Number.isFinite(n) ? (Math.trunc(n) >>> 0) : null;
+  }
+
+  var requestedSeed = readSeedParam();
+  if (requestedSeed !== null && window.pbt && typeof window.pbt.setBaseSeed === 'function') {
+    window.pbt.setBaseSeed(requestedSeed);
+  }
+
+  function reproUrl(seed) {
+    var path = window.location.pathname.split('/').pop() || 'tests.html';
+    return './' + path + '?seed=' + seed;
+  }
+
+  /* ----------------------------------------------------------- 反例の整形 */
+
+  function formatArgs(values) {
+    if (!values) { return '(なし)'; }
+    if (!Array.isArray(values)) { return String(values); }
+    if (values.length === 0) { return '()'; }
+    var parts = [];
+    for (var i = 0; i < values.length; i++) {
+      parts.push(window.pbt.formatValue(values[i]));
+    }
+    return '(' + parts.join(', ') + ')';
+  }
+
+  /* ------------------------------------------------------------- 結果描画 */
+
+  var rendered = 0;
+
+  function renderResult(r) {
+    if (el.resultsEmpty && el.resultsEmpty.parentNode) {
+      el.resultsEmpty.parentNode.removeChild(el.resultsEmpty);
+      el.resultsEmpty = null;
+    }
+    rendered++;
+
+    var li = add(el.results, 'li', 'result');
+    var head = add(li, 'div');
+    add(head, 'span', 'badge ' + (r.ok ? 'pass' : 'fail'), r.ok ? 'PASS' : 'FAIL');
+    add(head, 'span', null, r.name);
+
+    var meta = r.type === 'property'
+      ? '[property] 反復 ' + r.runsExecuted + '/' + r.runs + ' · seed ' + r.seed
+      : '[unit]';
+    meta += ' · ' + Math.round(r.durationMs) + 'ms';
+    add(head, 'span', 'meta', meta);
+
+    if (r.ok) { return; }
+
+    field(li, '失敗理由', r.message || '(理由の記録なし)', false);
+
+    if (r.type === 'property') {
+      field(li, '最小反例（縮小後）', formatArgs(r.shrunk), true);
+      field(li, '縮小前の反例', formatArgs(r.original), true);
+      field(li, '縮小ステップ数', String(r.shrinkSteps) + ' / ' + window.pbt.MAX_SHRINK_STEPS, false);
+      var seedWrap = add(li, 'div', 'field');
+      add(seedWrap, 'span', 'k', '乱数シード（再現用）');
+      add(seedWrap, 'span', 'mono', String(r.seed));
+      add(seedWrap, 'span', 'meta', '  pbt.forAll(..., { seed: ' + r.seed + ' }) で単独再現できる');
+    }
+  }
+
+  function renderSummary() {
+    var s = window.pbt.summary();
+    el.total.textContent = String(s.total);
+    el.passed.textContent = String(s.passed);
+    el.failed.textContent = String(s.failed);
+    el.seed.textContent = String(s.baseSeed);
+    el.repro.textContent = reproUrl(s.baseSeed);
+    el.repro.setAttribute('href', reproUrl(s.baseSeed));
+    return s;
+  }
+
+  /* --------------------------------------------------------------- 環境表示 */
+
+  function renderEnv() {
+    el.env.innerHTML = '';
+
+    function row(label, ok, text) {
+      var li = add(el.env, 'li', 'spec');
+      add(li, 'span', 'badge ' + (ok ? 'pass' : 'miss'), ok ? 'OK' : '注意');
+      add(li, 'span', null, label);
+      if (text) { add(li, 'span', 'meta', text); }
+      return li;
+    }
+
+    var hasPbt = !!(window.pbt && typeof window.pbt.forAll === 'function');
+    row('pbt.js', hasPbt, hasPbt ? '' : '読み込みに失敗した。テストを実行できない。');
+
+    var hasAssert = !!(globalThis.assert && typeof globalThis.assert.deepEqual === 'function');
+    row('assert.js', hasAssert, hasAssert ? '' : '読み込みに失敗した。');
+
+    var hook = window.__VSC_TEST__;
+    var keys = hook ? Object.keys(hook) : [];
+    row('app.js の window.__VSC_TEST__', !!hook,
+      hook
+        ? '公開された関数・定数 ' + keys.length + ' 個' + (keys.length === 0 ? '（タスク 21.1 で充填される）' : '')
+        : 'フックが存在しない。純粋関数のプロパティテストは実行できない。');
+
+    row('プロトコル ' + window.location.protocol, window.location.protocol !== 'file:',
+      window.location.protocol === 'file:'
+        ? 'spec-dom.js は iframe の同一オリジン制約により実行できない。静的サーバー経由で開く。'
+        : 'spec-dom.js を実行できる。');
+
+    if (requestedSeed !== null) {
+      row('baseSeed を URL で固定', true, 'seed=' + requestedSeed);
+    }
+
+    var errors = window.__VSC_RUNNER_ERRORS__;
+    if (errors.length === 0) {
+      row('スクリプト実行中の未捕捉例外', true, 'なし');
+    } else {
+      for (var i = 0; i < errors.length; i++) {
+        var e = errors[i];
+        var where = e.where === '../app.js'
+          ? '../app.js（bootstrap() などの読み込み時例外。テスト結果には算入しない）'
+          : e.where;
+        var li = row('未捕捉例外: ' + where, false, '');
+        field(li, '内容', e.text + (e.line !== null ? '  (line ' + e.line + ')' : ''), true);
+      }
+    }
+  }
+
+  /* ---------------------------------------------------- spec の動的読み込み */
+
+  function loadScript(src, context) {
+    return new Promise(function (resolve) {
+      var node = document.createElement('script');
+      // `type` を設定しないため、クラシックスクリプトとして評価される（要件 16-2）。
+      node.src = src;
+      node.async = false;
+      node.onload = function () { resolve(true); };
+      node.onerror = function () { resolve(false); };
+      window.__VSC_LOAD_CONTEXT__ = context;
+      document.head.appendChild(node);
+    });
+  }
+
+  function renderSpecRow(entry, state) {
+    var li = add(el.specs, 'li', 'spec');
+    var cls = state.loaded ? (state.errors.length ? 'fail' : 'pass') : 'miss';
+    var label = state.loaded ? (state.errors.length ? 'エラー' : '読込済') : '未作成';
+    add(li, 'span', 'badge ' + cls, label);
+    add(li, 'span', 'mono', entry.file);
+    add(li, 'span', 'meta', entry.note + (state.loaded
+      ? ' · 登録 ' + state.produced + ' 件'
+      : ' · ファイルが見つからない（後続タスクで作成される）'));
+    for (var i = 0; i < state.errors.length; i++) {
+      field(li, '実行時の例外', state.errors[i].text, true);
+    }
+  }
+
+  function loadSpecs() {
+    var states = [];
+    var index = 0;
+
+    function step() {
+      if (index >= SPEC_FILES.length) { return Promise.resolve(states); }
+      var entry = SPEC_FILES[index++];
+      var before = window.pbt.results.length;
+      var errorsBefore = window.__VSC_RUNNER_ERRORS__.length;
+      setStatus('読み込み中: ' + entry.file, 'wa');
+      return loadScript('./' + entry.file, entry.file).then(function (loaded) {
+        window.__VSC_LOAD_CONTEXT__ = 'tests.html';
+        var state = {
+          loaded: loaded,
+          produced: window.pbt.results.length - before,
+          errors: window.__VSC_RUNNER_ERRORS__.slice(errorsBefore)
+        };
+        states.push(state);
+        renderSpecRow(entry, state);
+        renderSummary();
+        return step();
+      });
+    }
+
+    return step();
+  }
+
+  /* --------------------------------------------------------------- 実行本体 */
+
+  function finish() {
+    var s = renderSummary();
+    renderEnv();
+    if (s.total === 0) {
+      setStatus('実行されたテストがない。spec ファイルがまだ作成されていない。', 'wa');
+    } else if (s.failed === 0) {
+      setStatus('完了 — 全 ' + s.total + ' 件成功', 'ok');
+    } else {
+      setStatus('完了 — ' + s.failed + ' 件失敗 / 全 ' + s.total + ' 件', 'ng');
+    }
+    document.title = (s.failed === 0 ? '✓ ' : '✗ ') + s.passed + '/' + s.total
+      + ' — voice-shot-counter-pwa テスト';
+  }
+
+  function main() {
+    if (!window.pbt || typeof window.pbt.forAll !== 'function') {
+      renderEnv();
+      setStatus('pbt.js を読み込めなかったため実行を中止した。', 'ng');
+      return;
+    }
+    window.pbt.setReporter(renderResult);
+    renderSummary();
+    renderEnv();
+    setStatus('spec ファイルを読み込み中…', 'wa');
+
+    loadSpecs().then(function () {
+      /*
+       * 非同期の spec（spec-dom.js のように <iframe> の load を待つもの）は
+       * window.__VSC_DEFERRED__ に Promise を返す関数を積む規約とする。
+       * 読み込み時に同期実行できるテストは pbt.forAll / pbt.test を直接呼べばよく、
+       * この配列を使う必要はない。
+       */
+      var deferred = Array.isArray(window.__VSC_DEFERRED__) ? window.__VSC_DEFERRED__ : [];
+      var i = 0;
+      function next() {
+        if (i >= deferred.length) { return Promise.resolve(); }
+        var fn = deferred[i++];
+        setStatus('非同期テストを実行中… (' + i + '/' + deferred.length + ')', 'wa');
+        return Promise.resolve().then(fn).catch(function (e) {
+          window.__VSC_RUNNER_ERRORS__.push({
+            where: '非同期テスト #' + i,
+            text: (e && e.message) ? String(e.message) : String(e),
+            file: '',
+            line: null
+          });
+        }).then(next);
+      }
+      return next();
+    }).then(finish, function (e) {
+      window.__VSC_RUNNER_ERRORS__.push({
+        where: 'テストランナー',
+        text: (e && e.message) ? String(e.message) : String(e),
+        file: '',
+        line: null
+      });
+      finish();
+    });
+  }
+
+  el.rerun.addEventListener('click', function () {
+    var path = window.location.pathname.split('/').pop() || 'tests.html';
+    window.location.href = './' + path;
+  });
+  el.rerunSeed.addEventListener('click', function () {
+    window.location.href = reproUrl(window.pbt ? window.pbt.baseSeed : 0);
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', main);
+  } else {
+    main();
+  }
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,571 @@
+{
+  "pbtResults": {
+    "4.2 Property 14 のプロパティテストを書く（任意）": {
+      "status": "passed",
+      "lastRunTimestamp": 1790261215870
+    },
+    "4.3 Property 13 のプロパティテストを書く（任意）": {
+      "status": "passed",
+      "lastRunTimestamp": 1790261221473
+    },
+    "5.2 Property 1 のプロパティテストを書く（任意）": {
+      "status": "passed",
+      "lastRunTimestamp": 1790261783762
+    },
+    "5.3 Property 2 のプロパティテストを書く（任意）": {
+      "status": "passed",
+      "lastRunTimestamp": 1790261784046
+    },
+    "5.4 Property 3 のプロパティテストを書く（任意）": {
+      "status": "passed",
+      "lastRunTimestamp": 1790261784978
+    },
+    "6.2 Property 10 のプロパティテストを書く（任意）": {
+      "status": "passed",
+      "lastRunTimestamp": 1790262632734
+    },
+    "6.3 Property 11 のプロパティテストを書く（任意）": {
+      "status": "passed",
+      "lastRunTimestamp": 1790262636977
+    }
+  },
+  "executionHistory": {
+    "1.1 index.html を作成し、全パネルの DOM 構造とインライン CSS を同梱する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904319
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257915707
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790258277903
+      }
+    ],
+    "1.2 app.js に IIFE 骨格とサブシステムの配置枠を作成する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904327
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257917134
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790258279334
+      }
+    ],
+    "2.1 DRILL_MENU / COMMAND_TABLE / EXCLUSION_WORDS / LIMITS / THEME と既定メニュー生成を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904332
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790258310960
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790259256589
+      }
+    ],
+    "4.1 normalizeText / buildExclusionMask / selectCommand / restartDelay を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904338
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790259258753
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790261271535
+      }
+    ],
+    "5.1 applyCount / undoCount / successRate / totals を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904347
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790261275153
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790261836463
+      }
+    ],
+    "6.1 cursorReducer / reindexAfterMenuChange / 種目編集の純粋版を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904353
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790261837511
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790262697010
+      }
+    ],
+    "7.1 serializeSession / deserializeSession を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904359
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790262701249
+      }
+    ],
+    "7.2 serializeMenus / deserializeMenus / validateMenu を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904363
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790262701795
+      }
+    ],
+    "8.1 elapsedFrom / formatElapsed / deriveTargetTotal / progressRatio / aggregateBySection / formatRate / sortHistoryIndex を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904369
+      }
+    ],
+    "9. チェックポイント - 純粋関数コアの検証": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904380
+      }
+    ],
+    "10.1 createCountManager を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904390
+      }
+    ],
+    "10.2 createCursorManager を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904400
+      }
+    ],
+    "10.3 createMenuManager のメモリ内コアを実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904418
+      }
+    ],
+    "10.4 Command_Dispatcher を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904426
+      }
+    ],
+    "11.1 guarded ラッパ・キーレイアウト・セッション / 設定 / 選択中メニュー識別子の関数を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904437
+      }
+    ],
+    "11.2 履歴関数と容量超過の退避ループを実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904445
+      }
+    ],
+    "11.3 メニュー関数を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904454
+      }
+    ],
+    "11.4 デバウンス保存・起動時復元・他タブ監視を配線する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904462
+      }
+    ],
+    "12.1 レンダラ（dirty フラグ + requestAnimationFrame バッチ + 描画バジェット）を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904468
+      }
+    ],
+    "12.2 メイン画面の描画を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904473
+      }
+    ],
+    "12.3 表示領域に応じたレイアウト切替を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904478
+      }
+    ],
+    "12.4 5 個の操作ボタン・種目タップ・全カウント初期化を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904485
+      }
+    ],
+    "12.5 showMessage / showConfirm とフィードバック領域を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904490
+      }
+    ],
+    "13. チェックポイント - メイン画面での計測成立": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904495
+      }
+    ],
+    "14.1 createSpeechRecognizer を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904500
+      }
+    ],
+    "14.2 音声認識トグル・状態インジケーター・フィードバック表示を配線する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904504
+      }
+    ],
+    "15.1 createWakeLockManager を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904510
+      }
+    ],
+    "16.1 createThemeManager を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904516
+      }
+    ],
+    "16.2 省電力配色トークンを index.html の CSS に実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904520
+      }
+    ],
+    "17.1 createSessionTimer を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904525
+      }
+    ],
+    "17.2 練習開始 / 一時停止 / 再開 / 終了と経過時間表示を配線する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904530
+      }
+    ],
+    "18.1 メニュー編集パネルを実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904535
+      }
+    ],
+    "18.2 セッション進行中の編集反映を配線する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904541
+      }
+    ],
+    "18.3 メニュー一覧・作成・複製・名称変更・削除・切り替えの UI を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904545
+      }
+    ],
+    "19.1 createHistoryView を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904549
+      }
+    ],
+    "19.2 セッション終了時の履歴レコード生成と画面遷移を配線する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904553
+      }
+    ],
+    "20.1 manifest.json を作成する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904557
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257918016
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790258280352
+      }
+    ],
+    "20.2 アイコン画像 3 個を実ファイルとして生成する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904563
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257919204
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790258281419
+      }
+    ],
+    "20.3 sw.js を作成する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904568
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790258311921
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790258792878
+      }
+    ],
+    "20.4 registerServiceWorker と非対応 / file:// 分岐を実装する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904572
+      }
+    ],
+    "20.5 index.html に manifest リンクと iOS メタ情報を追加する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904577
+      }
+    ],
+    "21.1 bootstrap() の起動順序を実装し、テスト公開フックを確定する": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904582
+      }
+    ],
+    "22. 最終チェックポイント": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790257904587
+      }
+    ],
+    "1. 静的シェルと app.js の骨格": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790258279340
+      }
+    ],
+    "3.1 test/pbt.js に生成器・縮小器・実行器を実装する（任意）": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790258313317
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790258792884
+      }
+    ],
+    "3.2 test/assert.js に deepEqual / ok / throwsNot を実装する（任意）": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790258314581
+      },
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790258793842
+      }
+    ],
+    "3. プロパティテストハーネス": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790258792891
+      }
+    ],
+    "2. 定数とデータモデルの定義": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790259256597
+      }
+    ],
+    "3.3 test/tests.html にテストランナー入口を作成する（任意）": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790259257928
+      }
+    ],
+    "4. 純粋関数: テキスト正規化とコマンド判定": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790261271542
+      }
+    ],
+    "4.2 Property 14 のプロパティテストを書く（任意）": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790261271828
+      }
+    ],
+    "4.3 Property 13 のプロパティテストを書く（任意）": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790261272576
+      }
+    ],
+    "4.4 語彙・除外語・再開待機・800ms 抑止の単体テストを書く（任意）": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790261273917
+      }
+    ],
+    "5.2 Property 1 のプロパティテストを書く（任意）": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790261832701
+      }
+    ],
+    "5.3 Property 2 のプロパティテストを書く（任意）": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790261834123
+      }
+    ],
+    "5.4 Property 3 のプロパティテストを書く（任意）": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790261835064
+      }
+    ],
+    "5. 純粋関数: カウント遷移と取り消し": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790261836470
+      }
+    ],
+    "6.2 Property 10 のプロパティテストを書く（任意）": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790262697013
+      }
+    ],
+    "6. 純粋関数: カーソル遷移と種目 id 操作": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790262697020
+      }
+    ],
+    "6.3 Property 11 のプロパティテストを書く（任意）": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790262698397
+      }
+    ],
+    "6.4 reindexAfterMenuChange の単体テストを書く（任意）": [
+      {
+        "executionId": "61f75612-9856-414b-8d56-0d8d5ac020cb",
+        "chatSessionId": "sess_9fc3bc76-a8b0-42cc-a779-910511a68726",
+        "timestamp": 1790262700652
+      }
+    ]
+  }
+}

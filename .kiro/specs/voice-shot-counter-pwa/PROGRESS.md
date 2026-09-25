@@ -1,0 +1,104 @@
+# voice-shot-counter-pwa 進捗・申し送り
+
+## 進捗
+
+- **実装タスク 98 件すべて完了**（tasks.md のチェックボックスが正。未チェックは 0 件）。
+- チェックポイント 9（純粋関数コアの検証）／13（メイン画面での計測成立）／22（最終）を通過。
+- テスト: **106 件すべて通過**（Correctness Property 17 件 + 単体・DOM 検証）。
+  - `node test/run-node.js` … 84 passed / 0 failed（spec-dom.js を除く）
+  - `test/tests.html`（file://、ヘッドレス Chrome）… 84 passed / 0 failed、未捕捉例外なし
+  - `test/tests.html`（`node test/serve.js` 経由）… **106 passed / 0 failed**（spec-dom.js の 22 件を含む）
+  - シード 3 / 101 / 55555 / 987654 / 986462863 などで再実行して安定を確認
+
+## 成果物（7 ファイル）
+
+| ファイル | 内容 |
+|---|---|
+| `index.html` | 3 パネル（メイン / 履歴 / メニュー編集）の DOM、インライン CSS（13 節構成・CSS カスタムプロパティ駆動・縦/横/低解像度の 3 分岐）、PWA メタ情報、id 契約コメント |
+| `app.js` | 全ロジック（約 7,000 行の単一 IIFE。うち約半分が設計・要件との対応を示すコメント）。外部オリジン参照ゼロ、`import` / `export` なし |
+| `manifest.json` | name / short_name / start_url / scope / display / orientation / colors / 192・512 アイコン |
+| `sw.js` | precache（7 ファイル）+ ナビゲーション network-first（3 秒）+ 同一オリジン cache-first |
+| `icon-192.png` / `icon-512.png` / `apple-touch-icon-180.png` | 実 PNG バイナリ |
+
+`app.js` の構成:
+
+- 節 1 定数 … `DRILL_MENU` / `LIMITS` / `COMMAND_TABLE` / `EXCLUSION_WORDS` / `THEME` / `SCHEMA_VERSION` / `LAYOUT_PORTRAIT_LONG_MIN` / `createDefaultMenu` / `nextDrillId`
+- 節 2 純粋関数（Property 1〜17 の検証対象）
+  - 2-1 `normalizeText` / `buildExclusionMask` / `selectCommand` / `restartDelay`
+  - 2-2 `applyCount` / `undoCount` / `successRate` / `totals`
+  - 2-3 `cursorReducer` / `reindexAfterMenuChange` / `reorderDrills` / `removeDrill` / `addDrill` / `purgeDrillCounts` / `addDrillCounts` / `reorderCounts`
+  - 2-4 `serializeSession` / `deserializeSession`（+ `initialSessionState` / `reconcileWithMenu` / `SESSION_FIELDS`）
+  - 2-5 `serializeMenus` / `deserializeMenus` / `validateMenu` / `deriveTargetTotal`
+  - 2-6 `elapsedFrom` / `formatElapsed` / `progressRatio` / `aggregateBySection` / `formatRate` / `sortHistoryIndex` / `layoutModeFor` / `buildHistoryRecord` / `formatEndedAt` / `isoLocalFrom`
+- 節 3 副作用シェル … `createStorageAdapter` / `createPersistenceCoordinator` / `createCountManager` / `createCursorManager` / `createMenuManager` / `createMenuEditorView` / `createCommandDispatcher` / `createSpeechRecognizer` / `createWakeLockManager` / `createThemeManager` / `createSessionTimer` / `createRenderer` / `createDisplayPanel` / `createHistoryView` / `registerServiceWorker`
+- 節 4 `window.__VSC_TEST__`（純粋関数 43 個 + 読み取り専用定数）
+- 節 5 `bootstrap()`（テーマ → メニュー復元 → セッション復元 → 初回描画 → SW 登録）
+
+## テストファイル（配布対象外）
+
+`test/` は成果物 7 ファイルに含まれず、`sw.js` の `PRECACHE` にも列挙しない。
+
+- `pbt.js` … 自作 PBT ハーネス（生成器・縮小器・固定シード）
+- `assert.js` … `deepEqual` / `ok` / `throwsNot`
+- `tests.html` … ランナー（`?seed=<整数>` でシード固定）
+- `spec-count.js` / `spec-serializer.js` / `spec-cursor.js` / `spec-timer.js` / `spec-command.js` / `spec-display.js` … Property 1〜17
+- `spec-unit.js` … 例示・境界値テスト（44 件）
+- `spec-dom.js` … DOM 層の検証（静的サーバー必須）
+- `run-node.js` … Node 用ランナー（開発用）
+- `serve.js` … 最小の静的サーバー（開発用）
+
+## 実行方法
+
+```
+node test/run-node.js                      # spec-dom.js 以外の全件
+node test/run-node.js spec-serializer.js   # 個別実行
+VSC_SEED=12345 node test/run-node.js       # シード固定
+
+node test/serve.js                         # 静的サーバー（既定 8731）
+#   → http://127.0.0.1:8731/test/tests.html  で spec-dom.js を含む全件
+#   → http://127.0.0.1:8731/index.html       でアプリ本体（Service Worker 有効）
+```
+
+アプリ本体は `file://` でも動作する（Service Worker のみ無効になり、その旨を表示する）。
+
+## 申し送り（設計・要件に対する解釈と既知の判断）
+
+1. **`window.__VSC_TEST__` の公開内容は設計の一覧より広い**。追加分はいずれも 2 節の純粋関数または読み取り専用定数であり、公開方針（ファクトリ関数・DOM 参照・localStorage ラッパを公開しない）には反しない。
+   - `reorderDrills` / `removeDrill` / `addDrill` / `purgeDrillCounts` / `addDrillCounts` / `reorderCounts`（Property 11 の対象）
+   - `layoutModeFor` / `buildHistoryRecord` / `makeHistoryId` / `formatEndedAt` / `isoLocalFrom`（タスク 12.7 / 18.4 / 19.3 の対象）
+   - `createDefaultMenu` / `DRILL_MENU` / `THEME` / `SCHEMA_VERSION` / `SESSION_FIELDS`
+2. **副作用シェルのファクトリは `__VSC_TEST__.shell` に、テストランナー配下でのみ公開する**。判定は `window.__VSC_LOAD_CONTEXT__` の存在（tests.html / run-node.js が app.js より前に設定する変数）で行うため、**index.html 経由の本番起動では `shell` は一切代入されない**。タスク 10.5 / 11.5 / 11.6 / 14.3 / 15.2 / 17.3 / 18.4 / 19.3 / 12.8 はこの入口を使う。
+3. **`Storage_Adapter` の 2 つのシグネチャは設計と異なる**。
+   - `loadSession(menu)` … 選択中メニューを引数に取り、`{state, issues}` か `null` を返す（reconcile に種目 id 集合が必要。要件 1-10 / 6-10 / 6-11）
+   - `listMenus()` … `{menus, issues}` を返す（要件 13-14 のメッセージ表示に除外の事実が必要）
+4. **`guarded` の 1000ms 締切は `setTimer` / `clearTimer` を注入して検証する**。`localStorage` は同期 API なので実運用では締切に到達しないが、要件 12-2 の保証は将来の `fetch` 差し替えでそのまま効く必要がある。
+5. **レンダラは rAF に加えて保険のタイマー（既定 100ms / 省電力時は描画バジェット）を張る**。ヘッドレスブラウザや非可視タブでは `requestAnimationFrame` が間引かれて描画を取りこぼすため。トークン判定で二重描画は起きず、省電力時の「毎秒 5 回以下」（要件 10-4）も維持される。
+6. **`addDrill` の `reservedIds` は「セッション中に一度でも使った種目 id の高水位」**。`Count_Manager.getReservedIdHigh()` が保持し、`Menu_Editor_View` が追加時に渡す。これがないと最大 id の種目を削除した直後の追加で削除済み id を再利用する（Property 11 が検出した）。
+7. **要件書に 13 種目の具体名が無い**。requirements.md 要件 1 は集約制約（13 種目 / セクション別 20・40・30・35 / 総計 125 / id 1〜13）のみを規定しており、種目名は `app.js` の `DRILL_MENU` が唯一の正。タスク 2.2 の単体テストはこの集約制約を全列挙で検証している。
+8. **`sw.js` は意図的に `skipWaiting()` / `clients.claim()` を呼ばない**。練習セッション中に app.js とキャッシュ資産のバージョンが混在するのを避けるため。
+9. **確定させた解釈**（コード内コメントにも記載）:
+   - 正規化の切り詰めはコードポイント単位かつ UTF-16 長も 200 以下
+   - 除外語マスクは 1 文字でも重なる出現を選択しない
+   - `counts` の正規形は `{id, make, attempt}` の配列（id 索引は `getCounts()` の射影）
+   - 操作履歴 20 件超過で除去された操作は以後取り消せない
+   - `Session_State.startedAt` は「未開始」を `null` で表す
+   - 旧版スキーマでも**存在するフィールドは値域検証の対象**（Property 7 の「常に妥当な状態」と矛盾させないため）
+   - 値域違反は初期状態へ落とす（要件 13-10）が、メニュー id 集合との不整合は `reconcileWithMenu` が修復して `issues` に記録するだけ（要件 1-10 / 6-10 / 6-11）
+   - メニュー / 種目の「文字数」はコードポイント単位（絵文字 1 個 = 1 文字）
+   - `deserializeMenus` は 21 件目以降を `MENU_COUNT_RANGE` として除外し先頭 20 件を採る
+   - `sortHistoryIndex` の `endedAt` は数値（epoch ms）と ISO 8601 文字列の両方を受け付け `Date.parse` で数値化する
+   - `deriveTargetTotal` は `validateMenu` が依存するため 2-5 に置く（2-6 で再定義しない）
+   - 初回起動（保存データなし）で既定メニューを生成するのは正常動作なので `issues` に積まない（要件 18-5）
+   - 振動（要件 4-10）の判定は「直前 < targetMake かつ 今回 ≥ targetMake」。省電力バジェットで描画がまとまり Make が目標を飛び越えても 1 回だけ鳴る
+   - 要件 8-9 / 8-10 / 8-11 の「スクロールなし表示」対象は 6 項目・メニュー名・全体進捗テキスト・全体進捗バー・5 個の操作ボタン。全カウント初期化ボタンとフィードバック領域は列挙に含まれない
+
+## 残っている確認（実機・手動が必要なため自動テストの対象外）
+
+設計の「実機手動確認が必須な項目」「オフライン・キャッシュ更新の確認手順」に対応する。
+
+1. **実機の音声認識**: iOS Safari / Android Chrome での `SpeechRecognition` の挙動（連続認識の実際の停止頻度、`onend` の発火間隔、マイク許可ダイアログ）。
+2. **Wake Lock**: 実機で画面が消灯しないこと、可視復帰で再取得されること。
+3. **オフライン起動**: DevTools の Network を offline にしてリロード → 3 秒以内に表示されること（要件 15-5）。
+4. **キャッシュ更新**: `app.js` を変更 → リロード → タブを閉じて再度開く、で新バージョンに入れ替わること（`skipWaiting()` を呼ばない設計のため 2 段階になる）。
+5. **ホーム画面追加**: iOS / Android で manifest とアイコンが正しく扱われること。
+6. **遠距離視認**: 実機を床に置いて立った位置から Make が読めること（文字高の要件は自動検証済みだが体感の確認）。
