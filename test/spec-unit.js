@@ -537,7 +537,7 @@
    * ディスパッチャと依存を 1 組作る。
    * `conflicted` を後から差し替えられるようにして他タブ競合を再現する。
    */
-  function makeRig() {
+  function makeRig(options) {
     var counts = shell.createCountManager();
     var cursor = shell.createCursorManager();
     counts.initFromMenu(MENU);
@@ -551,6 +551,7 @@
       dirty: [],
       saves: 0,
       goals: [],
+      completions: [],
       timerStarts: []
     };
 
@@ -567,6 +568,13 @@
       markDirty: function (region) { rig.dirty.push(region); },
       scheduleSave: function () { rig.saves++; },
       onGoalReached: function (made, target) { rig.goals.push({ made: made, target: target }); },
+      onDrillCompleted: function (completed, next) {
+        rig.completions.push({
+          completed: completed ? completed.name : null,
+          next: next ? next.name : null
+        });
+      },
+      autoAdvanceOnComplete: (options && options.autoAdvance === false) ? false : true,
       isConflicted: function () { return rig.conflicted; }
     });
     return rig;
@@ -695,6 +703,95 @@
     rig.dispatcher.resetGoalNotice();
     rig.dispatcher.dispatch('MAKE', 'voice', t + 1000);
     assert.ok(rig.goals.length === 2, 'resetGoalNotice 後に再通知されない');
+    return true;
+  });
+
+  pbt.test('Command_Dispatcher: 目標成功数に達したら次の種目へ自動遷移する（要件 6-9）', function () {
+    // MENU は 3 種目、targetMake はいずれも 2
+    var rig = makeRig();
+    var t = 1000;
+    function make() { var r = rig.dispatcher.dispatch('MAKE', 'voice', t); t += 1000; return r; }
+    function miss() { var r = rig.dispatcher.dispatch('MISS', 'voice', t); t += 1000; return r; }
+
+    assert.ok(rig.cursor.getIndex() === 0, '初期のアクティブ種目が先頭でない');
+
+    // 1 本目: 目標未達なので遷移しない
+    var first = make();
+    assert.ok(first.advancedTo === null, '目標未達で遷移した');
+    assert.ok(rig.cursor.getIndex() === 0, '目標未達でアクティブ種目が動いた');
+    assert.ok(rig.completions.length === 0, '目標未達で完了通知が出た');
+
+    // 失敗は遷移の契機にならない
+    miss();
+    assert.ok(rig.cursor.getIndex() === 0, '失敗でアクティブ種目が動いた');
+
+    // 2 本目: 目標到達 → 次の種目へ自動遷移
+    var second = make();
+    assert.ok(second.ok === true, '目標到達の成功コマンドが拒否された');
+    assert.ok(second.advancedTo !== null && second.advancedTo.id === 2,
+      '目標到達で次の種目へ遷移しない: ' + assert.format(second.advancedTo));
+    assert.ok(rig.cursor.getIndex() === 1, 'アクティブ種目が 2 番目にならない');
+    assert.deepEqualOk(rig.completions, [{ completed: 'ゴール下', next: 'ショートミドル' }],
+      '完了通知の内容が期待と異なる', { name: 'completions' });
+
+    // 遷移後の加算は新しい種目に入る
+    make();
+    var counts = rig.counts.getCountsList();
+    assert.deepEqualOk(counts[0], { id: 1, make: 2, attempt: 3 },
+      '1 種目目のカウントが変化した', { name: 'drill1' });
+    assert.deepEqualOk(counts[1], { id: 2, make: 1, attempt: 1 },
+      '2 種目目に加算されていない', { name: 'drill2' });
+
+    // 2 種目目も完了 → 3 種目目へ
+    make();
+    assert.ok(rig.cursor.getIndex() === 2, '2 種目目の完了で 3 番目に遷移しない');
+
+    // 最終種目の完了では移動先が無いので留まる（循環しない。要件 6-5）
+    make();
+    var last = make();
+    assert.ok(last.ok === true, '最終種目の完了で成功コマンドが拒否された');
+    assert.ok(last.advancedTo === null, '最終種目から遷移した');
+    assert.ok(rig.cursor.getIndex() === 2, '最終種目の完了で先頭へ循環した');
+    var lastCompletion = rig.completions[rig.completions.length - 1];
+    assert.ok(lastCompletion.next === null,
+      '最終種目の完了通知に次の種目が載っている: ' + assert.format(lastCompletion));
+
+    // targetMake を超える加算では遷移しない（要件 4-11 との両立）
+    var over = make();
+    assert.ok(over.advancedTo === null, '目標超過の加算で遷移した');
+    return true;
+  });
+
+  pbt.test('Command_Dispatcher: 完了済みの種目に戻って加算しても遷移しない（要件 4-11, 6-9）', function () {
+    var rig = makeRig();
+    var t = 1000;
+    function make() { var r = rig.dispatcher.dispatch('MAKE', 'voice', t); t += 1000; return r; }
+
+    make();
+    make();                                   // 1 種目目が完了 → 2 番目へ
+    assert.ok(rig.cursor.getIndex() === 1, '完了で 2 番目に遷移しない');
+
+    rig.dispatcher.dispatch('PREV', 'voice', t); t += 1000;
+    assert.ok(rig.cursor.getIndex() === 0, '「戻る」で 1 番目に戻らない');
+
+    // 加算前の Make が既に targetMake 以上なので自動遷移は起きない
+    var extra = make();
+    assert.ok(extra.advancedTo === null, '完了済みの種目で再び遷移した');
+    assert.ok(rig.cursor.getIndex() === 0, '完了済みの種目に留まらない');
+    assert.ok(rig.counts.getCountsList()[0].make === 3,
+      'targetMake を超える加算が保持されない: ' + rig.counts.getCountsList()[0].make);
+    return true;
+  });
+
+  pbt.test('Command_Dispatcher: 自動遷移を無効にすると「次へ」だけでカーソルが動く（要件 6-3）', function () {
+    var rig = makeRig({ autoAdvance: false });
+    var t = 1000;
+    rig.dispatcher.dispatch('MAKE', 'voice', t); t += 1000;
+    rig.dispatcher.dispatch('MAKE', 'voice', t); t += 1000;
+    assert.ok(rig.cursor.getIndex() === 0, '無効化しても自動遷移した');
+    assert.ok(rig.completions.length === 0, '無効化しても完了通知が出た');
+    rig.dispatcher.dispatch('NEXT', 'voice', t);
+    assert.ok(rig.cursor.getIndex() === 1, '「次へ」でカーソルが動かない');
     return true;
   });
 

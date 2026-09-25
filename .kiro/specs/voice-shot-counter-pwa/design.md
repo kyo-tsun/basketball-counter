@@ -128,6 +128,7 @@ dispatch(command, source, timestampMs)
 2. `source === 'touch'` の場合、同一ボタンについて 300ms 以内の連打を破棄（要件 7-7）。音声側の 800ms 抑止は Speech_Recognizer 内で完了しているため二重適用しない。
 3. 計数コマンド（MAKE / MISS）で Session_Timer が未開始なら開始（要件 11-2）。
 4. 対応する状態マネージャを呼び、戻り値（適用結果 / 拒否理由）を受け取る。
+4-a. 成功コマンドで当該種目の Make が targetMake に達した回（加算前 < targetMake かつ 加算後 ≥ targetMake）のみ、Cursor_Manager の `next()` を呼んで次の種目へ自動遷移する（要件 6-9）。到達の判定にはカウントと種目定義の両方が必要であり、それを同時に知るのはディスパッチャだけなので、Cursor_Manager 側は「次へ」コマンドと同じ経路を通る。最終種目では `AT_LAST` で移動しないが、これは拒否ではないためメッセージを出さない（要件 6-9-a）。
 5. 拒否理由があればフィードバック領域にメッセージを積む。
 6. 変更されたビュー領域に dirty フラグを立て、レンダラに再描画を要求。
 7. セッション状態が変化した場合、Storage_Adapter への保存を 300ms デバウンスでスケジュール（要件 12-4）。
@@ -199,6 +200,8 @@ createCursorManager()
 ```
 
 `next` / `prev` は循環しない（要件 6-5、6-6）。インデックスは常に `0 ≤ i ≤ N−1`（要件 6-7）。
+
+Cursor_Manager はカウントを参照しないため、targetMake 到達による自動遷移（要件 6-9）の判定は行わない。判定は Command_Dispatcher が行い、同じ `next()` を呼ぶ。これにより「自動遷移」と「次へコマンド」で遷移規則が分岐しない。
 
 ### Wake_Lock_Manager
 

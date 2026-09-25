@@ -1321,7 +1321,9 @@
    * 循環しない（要件 6-5, 6-6）。戻り値の `index` は常に
    * `Number.isInteger(index) && 0 ≤ index ≤ N−1`（要件 6-7）。
    * **カウントを引数に取らないため、この関数が Make / Attempt を変えることは
-   * 原理的にない**（要件 6-1, 6-3, 6-4, 6-8, 6-9）。
+   * 原理的にない**（要件 6-1, 6-3, 6-4, 6-8）。目標成功数への到達による
+   * 自動遷移（要件 6-9）はカウントを知る Command_Dispatcher が判定し、本関数の
+   * `NEXT` を呼ぶ形で実現する。
    *
    * @param {number} index 現在のアクティブ種目の添字
    * @param {number} N 選択中メニューの種目数
@@ -3730,9 +3732,11 @@
    *   内部遷移は 2-3 の cursorReducer に委譲する。循環しない。
    *
    * カウントを一切参照しないため、カーソル操作が Make / Attempt を変えることは
-   * 原理的にない（要件 6-1, 6-3, 6-4, 6-8）。Make の targetMake 到達も
-   * この層には伝わらないため、到達によってアクティブ種目が動くこともない
-   * （要件 6-9）。
+   * 原理的にない（要件 6-1, 6-3, 6-4, 6-8）。
+   * Make の targetMake 到達による次種目への自動遷移（要件 6-9）は、この層では
+   * 判定しない。到達の判定にはカウントと目標成功数の両方が必要であり、それを
+   * 知っているのは Command_Dispatcher（3-5）だけである。本層は同じ `next()` を
+   * 呼ばれるだけなので、自動遷移でも「次へ」コマンドでも遷移規則は同一になる。
    * ------------------------------------------------------------------------ */
 
   function createCursorManager() {
@@ -4186,6 +4190,11 @@
    *   7. 状態変化時に保存を 300ms デバウンスでスケジュール（要件 12-4）
    *   8. 全体成功数が目標合計に達したら達成時間の確定を要求（要件 11-6）
    *
+   * 加えて、成功コマンドで当該種目の Make が targetMake に達したら次の種目へ
+   * 自動遷移する（要件 6-9）。スマホに触らずに練習を通すための動作であり、
+   * カーソル移動はここ（ディスパッチャ）で順序を決めて Cursor_Manager を呼ぶ
+   * （状態層のマネージャは互いを直接呼ばない）。
+   *
    * 音声由来とタッチ由来がこの 1 個の入口を共有するため、結果状態と操作履歴が
    * 入力元によらず一致する（要件 7-4）。
    * ------------------------------------------------------------------------ */
@@ -4220,6 +4229,15 @@
     var isConflicted = (typeof d.isConflicted === 'function')
       ? d.isConflicted
       : function () { return false; };
+    /*
+     * 種目の目標成功数に達したら次の種目へ自動遷移するか（要件 6-9）。
+     * 既定は有効。スマホに触らずに練習を通せるようにするための動作であり、
+     * 無効にすると「次へ」コマンド / 種目タップだけでカーソルが動く。
+     */
+    var autoAdvanceOnComplete = (d.autoAdvanceOnComplete !== false);
+    var onDrillCompleted = (typeof d.onDrillCompleted === 'function')
+      ? d.onDrillCompleted
+      : function () {};
 
     // 同一ボタンごとの直前の受付時刻（要件 7-7 は「同一の操作ボタン」が対象）
     var lastTouchAt = {};
@@ -4308,6 +4326,13 @@
           return reject('NO_ACTIVE_DRILL');
         }
 
+        // 自動遷移の判定に使う「加算前の Make」と当該種目の目標成功数
+        var targetMake = (drill !== null && typeof drill === 'object')
+          ? toIntegerOrNull(drill.targetMake)
+          : null;
+        var makeBefore = countManager.getCounts()[drillId];
+        makeBefore = (makeBefore === undefined) ? 0 : makeBefore.make;
+
         var applied = countManager.apply(command, drillId);
         if (!applied.ok) { return reject(applied.reason); }
 
@@ -4317,6 +4342,36 @@
         markDirty('list');
         scheduleSave();
 
+        /*
+         * 目標成功数への到達で次の種目へ自動遷移する（要件 6-9）。
+         *
+         * ハンズフリーで練習を通すため、規定の本数を入れた時点で次の種目を
+         * 記録対象にする。判定は「加算前 < targetMake かつ 加算後 ≥ targetMake」
+         * の遷移をまたいだ回のみとし、targetMake を超える以降の加算では
+         * 遷移しない（要件 4-11 の超過保持と両立させる）。
+         * 最終種目では移動先が無いため当該種目に留まる（循環しない。要件 6-5）。
+         * 「戻る」で完了済みの種目に戻ってさらに入れる場合も、加算前が既に
+         * targetMake 以上なので自動遷移は起きない。
+         */
+        var advanced = null;
+        if (autoAdvanceOnComplete && command === 'MAKE' && targetMake !== null && targetMake > 0) {
+          var makeAfter = countManager.getCounts()[drillId];
+          makeAfter = (makeAfter === undefined) ? 0 : makeAfter.make;
+          if (makeBefore < targetMake && makeAfter >= targetMake) {
+            var moved = cursorManager.next();
+            if (moved.ok) {
+              advanced = cursorManager.getActiveDrill();
+              markDirty('active');
+              markDirty('list');
+              scheduleSave();
+              onDrillCompleted(drill, advanced);
+            } else {
+              // 最終種目の完了。移動しないことは拒否ではないのでメッセージも出さない
+              onDrillCompleted(drill, null);
+            }
+          }
+        }
+
         // 8. 目標合計への到達（要件 11-6）
         checkGoal();
 
@@ -4325,7 +4380,8 @@
           reason: null,
           applied: true,
           entry: applied.entry,
-          evicted: applied.evicted
+          evicted: applied.evicted,
+          advancedTo: advanced
         };
       },
 
@@ -6765,6 +6821,24 @@
         5000, 'GOAL_REACHED');
     }
 
+    /**
+     * 種目の目標成功数に到達した（要件 6-9, 4-9）。
+     * 次の種目へ自動遷移した場合はその種目名を提示する。スマホに触らずに
+     * 練習を通せるようにするため、次に何を記録しているかを声だけで確認できる
+     * 情報（種目名）をフィードバック領域に出す。
+     */
+    function handleDrillCompleted(completedDrill, nextDrill) {
+      var completedName = (completedDrill && typeof completedDrill.name === 'string')
+        ? completedDrill.name
+        : '種目';
+      if (nextDrill === null || nextDrill === undefined) {
+        message('info', completedName + ' 完了。これが最後の種目である。', 5000, 'DRILL_COMPLETED');
+        return;
+      }
+      var nextName = (typeof nextDrill.name === 'string') ? nextDrill.name : '次の種目';
+      message('info', completedName + ' 完了 → 次は ' + nextName, 5000, 'DRILL_COMPLETED');
+    }
+
     /** 新しいセッションを開始する（メニュー切替・リセット後）。 */
     function startNewSession(menu) {
       countManager.initFromMenu(menu);
@@ -6941,6 +7015,7 @@
       markDirty: function (region) { panel.markDirty(region); },
       scheduleSave: scheduleSave,
       onGoalReached: handleGoalReached,
+      onDrillCompleted: handleDrillCompleted,
       isConflicted: function () { return persistence.isConflicted(); }
     });
 

@@ -301,22 +301,38 @@
         rows: '2 / 3|true|false 0 / 2|false|false 0 / 2|false|false'
       }, '計数後のスナップショットが異なる', { name: 'snapshot2' });
 
-      // 状態 3: 目標超過（targetMake を超える Make をそのまま表示。要件 4-11, 4-12）
-      rig.dispatcher.dispatch('MAKE', 'touch', 4000);
-      rig.dispatcher.dispatch('MAKE', 'touch', 5000);
+      // 状態 3: 1 種目目が目標到達 → 次の種目へ自動遷移し、以後の加算は新しい種目に入る
+      //         （要件 6-9。ゴール下 3/3 完了 → ショートミドルへ）
+      rig.dispatcher.dispatch('MAKE', 'touch', 4000);   // ゴール下 3 本目 = 目標到達
+      rig.dispatcher.dispatch('MAKE', 'touch', 5000);   // ショートミドル 1 本目
       rig.panel.renderAll();
       assert.deepEqualOk(snap(), {
-        active: '近距離/ゴール下 セットシュート/4/3/5/80.0%',
+        active: '近距離/ショートミドル/1/2/1/100.0%',
         progress: '4 / 7本 IN',
-        achieved: 'true',
+        achieved: 'false',
         fill: '57.1%',
-        rows: '4 / 3|true|true 0 / 2|false|false 0 / 2|false|false'
-      }, '目標超過時のスナップショットが異なる', { name: 'snapshot3' });
+        rows: '3 / 3|false|true 1 / 2|true|false 0 / 2|false|false'
+      }, '自動遷移後のスナップショットが異なる', { name: 'snapshot3' });
 
-      // 要件 4-10: targetMake に到達した回のみ振動する（4 本目・5 本目では振動しない）
+      // 要件 4-10: targetMake に到達した回のみ振動する
       assert.ok(rig.vibrations.length === 1,
         '振動回数が 1 回でない: ' + rig.vibrations.length);
       assert.ok(rig.vibrations[0] === 200, '振動時間が 200ms でない: ' + rig.vibrations[0]);
+
+      // 状態 4: 「戻る」で完了済みの種目に戻り、targetMake を超える Make を
+      //         そのまま表示する（要件 4-11, 4-12）。自動遷移は起きない。
+      rig.dispatcher.dispatch('PREV', 'touch', 6000);
+      rig.dispatcher.dispatch('MAKE', 'touch', 7000);
+      rig.panel.renderAll();
+      assert.deepEqualOk(snap(), {
+        active: '近距離/ゴール下 セットシュート/4/3/5/80.0%',
+        progress: '5 / 7本 IN',
+        achieved: 'true',
+        fill: '71.4%',
+        rows: '4 / 3|true|true 1 / 2|false|false 0 / 2|false|false'
+      }, '目標超過時のスナップショットが異なる', { name: 'snapshot4' });
+      assert.ok(rig.vibrations.length === 1,
+        '目標超過の加算で振動した: ' + rig.vibrations.length);
     });
   });
 
@@ -1027,6 +1043,73 @@
           assert.ok(text(doc, 'progress-text') === '1 / 125本 IN',
             '復元した履歴の取り消しが反映されない: ' + text(doc, 'progress-text'));
         });
+      });
+    });
+  });
+
+  register('spec-dom: bootstrap() 済みで目標到達時に次の種目へ自動遷移する（要件 6-9）', function () {
+    return withBootedApp(375, 812, function (doc) {
+      /*
+       * 既定メニューは各種目 10 本なので、まずメニュー編集画面で 1 種目目の
+       * 目標を 2 本に下げてから、成功 2 本で次の種目へ移ることを確認する。
+       */
+      click(doc, 'btn-open-menu');
+      return wait(200).then(function () {
+        var rows = doc.querySelectorAll('#drill-editor-list .drill-editor-row');
+        rows[0].querySelector('[data-action="edit"]').dispatchEvent(
+          new doc.defaultView.MouseEvent('click', { bubbles: true, cancelable: true }));
+        doc.getElementById('input-drill-target').value = '2';
+        click(doc, 'btn-drill-save');
+        return wait(150);
+      }).then(function () {
+        click(doc, 'btn-menu-back');
+        return wait(250);
+      }).then(function () {
+        assert.ok(text(doc, 'active-name') === 'ゴール下 セットシュート',
+          '初期のアクティブ種目が 1 種目目でない: ' + text(doc, 'active-name'));
+        assert.ok(text(doc, 'active-target') === '2', '目標成功数が 2 に変わっていない');
+
+        // 1 本目: 目標未達なので遷移しない
+        click(doc, 'btn-make');
+        return wait(300);
+      }).then(function () {
+        assert.ok(text(doc, 'active-name') === 'ゴール下 セットシュート',
+          '目標未達でアクティブ種目が動いた: ' + text(doc, 'active-name'));
+        assert.ok(text(doc, 'active-make') === '1', '1 本目が記録されない');
+
+        // 2 本目: 目標到達 → 自動で 2 種目目へ
+        click(doc, 'btn-miss');            // 連打破棄を避けつつ試投だけ増やす
+        return wait(350);
+      }).then(function () {
+        click(doc, 'btn-make');
+        return wait(400);
+      }).then(function () {
+        assert.ok(text(doc, 'active-name') === 'ショートミドル セットシュート',
+          '目標到達で次の種目へ自動遷移しない: ' + text(doc, 'active-name'));
+        assert.ok(text(doc, 'active-make') === '0',
+          '遷移先の種目の Make が 0 でない: ' + text(doc, 'active-make'));
+        assert.ok(text(doc, 'active-target') === '10',
+          '遷移先の種目の目標成功数が 10 でない: ' + text(doc, 'active-target'));
+        // 遷移したことがフィードバック領域に出る（画面を見れば次の種目が分かる）
+        assert.ok(text(doc, 'feedback-message').indexOf('ショートミドル') !== -1,
+          '遷移先の種目名が提示されない: ' + text(doc, 'feedback-message'));
+
+        // 種目一覧でも 1 種目目が達成済み・2 種目目がアクティブになっている
+        var rows = doc.querySelectorAll('#drill-list .drill-row');
+        assert.ok(rows[0].getAttribute('data-achieved') === 'true',
+          '1 種目目が達成済み表示にならない');
+        assert.ok(rows[1].getAttribute('aria-current') === 'true',
+          '2 種目目がアクティブ行にならない');
+
+        // 遷移後の加算は新しい種目に入る
+        click(doc, 'btn-make');
+        return wait(300);
+      }).then(function () {
+        assert.ok(text(doc, 'active-make') === '1',
+          '遷移後の加算が新しい種目に入らない: ' + text(doc, 'active-make'));
+        var rows = doc.querySelectorAll('#drill-list .drill-row');
+        assert.ok(rows[0].querySelector('.drill-make').textContent === '2 / 2',
+          '1 種目目のカウントが変化した: ' + rows[0].querySelector('.drill-make').textContent);
       });
     });
   });
