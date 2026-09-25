@@ -6,6 +6,13 @@
 
 ビルド工程・パッケージマネージャ・外部サービスを一切使わない **静的ファイル 7 個だけ** で動く。
 
+## 👉 スマホで開く
+
+**<https://kyo-tsun.github.io/basketball-counter/>**
+
+Android の Chrome でこの URL を開き、**⋮ → アプリをインストール**（または「ホーム画面に追加」）を選ぶと、
+アドレスバーのない全画面アプリとして起動できる。一度開けば以降はオフラインでも使える。
+
 ---
 
 ## 主な機能
@@ -29,20 +36,18 @@
 Service Worker（オフライン動作）とホーム画面への追加を使うには **HTTPS または localhost** で配信する必要がある。
 用途に応じて次のいずれかを選ぶ。
 
-### 方法 A: GitHub Pages で公開する（おすすめ）
+### 方法 A: 公開済みの URL を開く（おすすめ）
 
-1. GitHub のリポジトリページ → **Settings** → **Pages** を開く
-2. **Source** を `Deploy from a branch`、**Branch** を `main` / `/ (root)` にして **Save**
-3. 1〜2 分待つと次の URL で開けるようになる
+GitHub Pages で HTTPS 配信済みなので、Android の Chrome でそのまま開ける。
 
-   ```
-   https://kyo-tsun.github.io/basketball-counter/
-   ```
+```
+https://kyo-tsun.github.io/basketball-counter/
+```
 
-4. Android の Chrome でこの URL を開く
+HTTPS で配信されるため、オフライン動作（Service Worker）とホーム画面への追加がどちらも使える。
 
-> **注意**: このリポジトリは現在 **private** である。GitHub Pages を無料プランで使うにはリポジトリを **public** にする必要がある（private のまま公開したい場合は GitHub Pro 以上が必要）。
-> public にする場合は Settings → General → 最下部の *Change repository visibility* から変更する。
+`main` ブランチのルートを配信する設定になっているので、**`main` に push するとそのまま反映される**
+（反映には数十秒〜数分かかる）。設定は GitHub のリポジトリページ → **Settings** → **Pages** で確認できる。
 
 ### 方法 B: PC から同じ Wi-Fi 経由で開く（公開したくない場合）
 
@@ -75,6 +80,8 @@ Android の Chrome で `http://192.168.x.x:8000/` を開く。
 `file://` でも記録・保存・履歴はすべて動作する（Service Worker のみ無効）。
 
 ### ホーム画面に追加する（方法 A のみ）
+
+HTTPS 配信が必要なため、方法 B（`http://` の LAN アクセス）と方法 C（`file://`）では利用できない。
 
 1. Chrome で開いた状態で右上の **⋮** をタップ
 2. **アプリをインストール** または **ホーム画面に追加** を選ぶ
@@ -266,3 +273,11 @@ node test/serve.js
 - **目標合計は派生値**: 125 本という数値はコードの計算経路に埋め込まず、常に選択中メニューの目標本数の合計として算出する
 
 要件定義・設計・実装タスクは `.kiro/specs/voice-shot-counter-pwa/` にある。
+
+---
+
+## リポジトリ
+
+<https://github.com/kyo-tsun/basketball-counter>
+
+`main` にプッシュすると GitHub Pages が自動で更新される。
