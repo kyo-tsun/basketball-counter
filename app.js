@@ -164,7 +164,19 @@
    * ---------------------------------------------------------------------- */
 
   var COMMAND_TABLE = deepFreeze([
-    { type: 'MAKE', priority: 0, words: ['イン', '入った', 'マル', 'まる', '○'] },
+    /*
+     * MAKE の語彙について（実機での聞き取りやすさ）
+     * 「イン」は 2 モーラしかなく、日本語の認識エンジンが「印」「員」「ポイント」
+     * などへ寄せて命令として拾えないことがある。要件 3-1 が定める 5 語に加えて、
+     * より長く一意に聞き取られやすい呼び方と、要件 3-2 / 3-5 が
+     * 「外れた / はずれた」「やり直し / やりなおし」で採っているのと同じ
+     * 「漢字表記とひらがな表記を対で登録する」方針に沿った表記ゆれを足す。
+     *   はいった … 「入った」のひらがな表記（エンジンが漢字を当てない場合）
+     *   ナイス / 成功 / 決まった … 3 モーラ以上で誤認識しにくい言い換え
+     * いずれも既存の除外語（要件 3-10）と衝突せず、除外語の追加を要さない。
+     */
+    { type: 'MAKE', priority: 0,
+      words: ['イン', '入った', 'はいった', 'マル', 'まる', '○', 'ナイス', '成功', '決まった'] },
     { type: 'MISS', priority: 1, words: ['アウト', '外れた', 'はずれた', 'バツ', 'ばつ', '×'] },
     { type: 'NEXT', priority: 2, words: ['次', 'つぎ'] },
     { type: 'PREV', priority: 3, words: ['戻る', 'もどる', '前'] },
@@ -4358,6 +4370,20 @@
   /** 同一種別のコマンドを続けて発行しない最小間隔（要件 3-7）。 */
   var COMMAND_SUPPRESS_MS = 800;
 
+  /*
+   * 認識結果の候補数（`maxAlternatives`）。
+   *
+   * 「イン」のような 2 モーラの短い語は、日本語の認識エンジンが言語モデルで
+   * より一般的な語へ寄せてしまうことが多い（「印」「員」「ポイント」「サイン」
+   * など）。第 1 候補だけを見ると命令として拾えないが、第 2・第 3 候補に
+   * 素直な「イン」が入っていることが多い。そこで候補を複数受け取り、
+   * **順位の高い候補から順に** コマンド判定にかけ、最初に命中した候補を採用する。
+   *
+   * 表示は第 1 候補（エンジンが最有力とした文字列）を出しつつ、実際に命中した
+   * 候補が異なる場合はそれも併記する（何と聞こえたかを利用者が確認できる）。
+   */
+  var MAX_ALTERNATIVES = 5;
+
   function createSpeechRecognizer(deps) {
     var d = isPlainObject(deps) ? deps : {};
     var onCommand = (typeof d.onCommand === 'function') ? d.onCommand : function () {};
@@ -4428,30 +4454,73 @@
       var results = (event && event.results) ? event.results : null;
       if (results === null) { return; }
       var index = (typeof event.resultIndex === 'number') ? event.resultIndex : 0;
-      var finalText = '';
+
+      /*
+       * 候補ごとにテキストを組み立てる。
+       * candidates[0] は第 1 候補の連結（= 表示に使う確定テキスト）、
+       * candidates[k] は第 k+1 候補の連結（その順位の候補を持たない要素は
+       * 第 1 候補で埋める）。暫定結果は第 1 候補のみを表示に使う。
+       */
+      var candidates = [];
       var interimText = '';
-      for (var i = index; i < results.length; i++) {
+      var hasFinal = false;
+      var i, k;
+      for (k = 0; k < MAX_ALTERNATIVES; k++) { candidates.push(''); }
+
+      for (i = index; i < results.length; i++) {
         var item = results[i];
         if (!item || !item[0]) { continue; }
-        var transcript = (typeof item[0].transcript === 'string') ? item[0].transcript : '';
-        if (item.isFinal) { finalText += transcript; } else { interimText += transcript; }
+        var top = (typeof item[0].transcript === 'string') ? item[0].transcript : '';
+        if (!item.isFinal) {
+          interimText += top;
+          continue;
+        }
+        hasFinal = true;
+        var count = (typeof item.length === 'number' && item.length > 0) ? item.length : 1;
+        for (k = 0; k < MAX_ALTERNATIVES; k++) {
+          var alt = (k < count && item[k] && typeof item[k].transcript === 'string')
+            ? item[k].transcript
+            : top;
+          candidates[k] += alt;
+        }
       }
 
-      if (finalText.length > 0 || interimText.length > 0) {
+      var finalText = candidates[0];
+      if (hasFinal || interimText.length > 0) {
         sawResultThisRun = true;
       }
 
       // 要件 2-9 / 2-10 / 3-11: 暫定結果は表示のみ。コマンド判定は行わない。
-      if (interimText.length > 0 && finalText.length === 0) {
-        onFeedback({ final: null, interim: interimText });
+      if (!hasFinal) {
+        if (interimText.length > 0) { onFeedback({ final: null, interim: interimText, matched: null }); }
         return;
       }
-      if (finalText.length === 0) { return; }
 
-      onFeedback({ final: finalText, interim: '' });
+      /*
+       * 第 1 候補から順に判定し、最初に命中した候補を採用する。
+       * 同一の候補文字列は 1 回だけ試す（同じ結果を繰り返し評価しない）。
+       */
+      var selected = null;
+      var matchedText = null;
+      var tried = [];
+      for (k = 0; k < candidates.length; k++) {
+        var text = candidates[k];
+        if (text.length === 0 || tried.indexOf(text) !== -1) { continue; }
+        tried.push(text);
+        var hit = selectCommand(normalizeText(text), COMMAND_TABLE, EXCLUSION_WORDS);
+        if (hit !== null) {
+          selected = hit;
+          matchedText = text;
+          break;
+        }
+      }
 
-      var normalized = normalizeText(finalText);
-      var selected = selectCommand(normalized, COMMAND_TABLE, EXCLUSION_WORDS);
+      onFeedback({
+        final: finalText,
+        interim: '',
+        matched: (matchedText !== null && matchedText !== finalText) ? matchedText : null
+      });
+
       // 要件 3-8: どのコマンド語も含まなければ発行せず表示のみ
       if (selected === null) { return; }
 
@@ -4532,7 +4601,7 @@
       instance.lang = 'ja-JP';
       instance.continuous = true;
       instance.interimResults = true;
-      instance.maxAlternatives = 1;
+      instance.maxAlternatives = MAX_ALTERNATIVES;
       instance.onresult = handleResult;
       instance.onend = handleEnd;
       instance.onerror = handleError;
@@ -6893,7 +6962,15 @@
       },
       onFeedback: function (payload) {
         if (payload.final !== null && payload.final !== undefined) {
-          panel.setSpeechText(payload.final, '');
+          /*
+           * 実際に命中した候補が第 1 候補と異なる場合は併記する。
+           * 「イン」と言って「印」と表示されるような状況でも、何と解釈して
+           * 記録したのかが利用者に分かるようにする。
+           */
+          var shown = (payload.matched !== null && payload.matched !== undefined)
+            ? (payload.final + '（' + payload.matched + ' と解釈）')
+            : payload.final;
+          panel.setSpeechText(shown, '');
         } else {
           panel.setSpeechText(undefined, payload.interim);
         }

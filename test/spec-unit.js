@@ -99,7 +99,8 @@
 
   pbt.test('selectCommand: 5 種別の全コマンド語が正しい種別を返す（要件 3-1〜3-5）', function () {
     var expected = {
-      MAKE: ['イン', '入った', 'マル', 'まる', '○'],
+      // 要件 3-1 の 5 語 + 実機の聞き取りやすさのために足した 4 語（app.js 1-5 参照）
+      MAKE: ['イン', '入った', 'はいった', 'マル', 'まる', '○', 'ナイス', '成功', '決まった'],
       MISS: ['アウト', '外れた', 'はずれた', 'バツ', 'ばつ', '×'],
       NEXT: ['次', 'つぎ'],
       PREV: ['戻る', 'もどる', '前'],
@@ -117,6 +118,24 @@
     }
     assert.deepEqualOk(types, ['MAKE', 'MISS', 'NEXT', 'PREV', 'UNDO'],
       '既定優先順（成功 → 失敗 → 次種目 → 前種目 → 取り消し）と一致しない');
+
+    // 要件 3-1〜3-5 が名指しする語がすべて語彙に含まれていること（追加は許容、欠落は不可）
+    var required = {
+      MAKE: ['イン', '入った', 'マル', 'まる', '○'],
+      MISS: ['アウト', '外れた', 'はずれた', 'バツ', 'ばつ', '×'],
+      NEXT: ['次', 'つぎ'],
+      PREV: ['戻る', 'もどる', '前'],
+      UNDO: ['リセット', 'やり直し', 'やりなおし']
+    };
+    var requiredTypes = Object.keys(required);
+    for (var rt = 0; rt < requiredTypes.length; rt++) {
+      var words = expected[requiredTypes[rt]];
+      for (var rw = 0; rw < required[requiredTypes[rt]].length; rw++) {
+        assert.ok(words.indexOf(required[requiredTypes[rt]][rw]) !== -1,
+          requiredTypes[rt] + ' の語彙に要件が定める ' +
+          assert.format(required[requiredTypes[rt]][rw]) + ' が無い');
+      }
+    }
 
     // 各語を単独のテキストとして与えると、その種別のコマンドが 1 個返る。
     var keys = Object.keys(expected);
@@ -1405,8 +1424,15 @@
   function finalResult(textValue) {
     return {
       resultIndex: 0,
-      results: { length: 1, 0: { isFinal: true, 0: { transcript: textValue } } }
+      results: { length: 1, 0: { isFinal: true, length: 1, 0: { transcript: textValue } } }
     };
+  }
+
+  /** 候補（alternatives）を複数持つ確定結果。第 1 候補が transcripts[0]。 */
+  function finalWithAlternatives(transcripts) {
+    var item = { isFinal: true, length: transcripts.length };
+    for (var i = 0; i < transcripts.length; i++) { item[i] = { transcript: transcripts[i] }; }
+    return { resultIndex: 0, results: { length: 1, 0: item } };
   }
 
   function interimResult(textValue) {
@@ -1458,6 +1484,62 @@
     rig.recognizer.__test.handleResult(finalResult('こんにちは'));
     assert.ok(rig.commands.length === 1, 'コマンド語を含まない結果でコマンドが発行された');
     assert.ok(rig.feedback[2].final === 'こんにちは', '非コマンドの確定テキストが表示されない');
+    return true;
+  });
+
+  pbt.test('Speech_Recognizer: 第 2 候補以降からもコマンドを拾う（短い「イン」の取りこぼし対策）', function () {
+    var rig = makeRig();
+    rig.recognizer.enable();
+    var instance = rig.log.instances[0];
+    assert.ok(instance.maxAlternatives >= 2,
+      'maxAlternatives が 2 以上でない: ' + instance.maxAlternatives);
+
+    // 第 1 候補が「印」（コマンド語を含まない同音語）でも第 2 候補の「イン」を拾う
+    rig.clock = 1000;
+    rig.recognizer.__test.handleResult(finalWithAlternatives(['印', 'イン', '員']));
+    assert.ok(rig.commands.length === 1 && rig.commands[0].type === 'MAKE',
+      '第 2 候補からコマンドを拾えない: ' + assert.format(rig.commands));
+
+    // 表示は第 1 候補を出しつつ、命中した候補を matched で伝える
+    var last = rig.feedback[rig.feedback.length - 1];
+    assert.ok(last.final === '印', '確定表示が第 1 候補でない: ' + last.final);
+    assert.ok(last.matched === 'イン',
+      '命中した候補が matched に載らない: ' + assert.format(last.matched));
+
+    // 第 1 候補が除外語に覆われる場合（「ポイント」は「いん」を含むがマスクされる）
+    rig.clock = 5000;
+    rig.recognizer.__test.handleResult(finalWithAlternatives(['ポイント', 'イン']));
+    assert.ok(rig.commands.length === 2,
+      '除外語に覆われた第 1 候補の次の候補を拾えない: ' + assert.format(rig.commands));
+
+    // 第 1 候補で命中する場合は matched を立てない（余計な併記をしない）
+    rig.clock = 9000;
+    rig.recognizer.__test.handleResult(finalWithAlternatives(['イン', '印']));
+    var hit = rig.feedback[rig.feedback.length - 1];
+    assert.ok(hit.final === 'イン' && hit.matched === null,
+      '第 1 候補で命中したのに matched が立っている: ' + assert.format(hit));
+
+    // どの候補にもコマンド語が無ければ発行しない（要件 3-8）
+    rig.clock = 13000;
+    var before = rig.commands.length;
+    rig.recognizer.__test.handleResult(finalWithAlternatives(['印', '員', '陰']));
+    assert.ok(rig.commands.length === before,
+      'コマンド語を含まない候補群でコマンドが発行された');
+    assert.ok(rig.feedback[rig.feedback.length - 1].final === '印',
+      '非コマンドの確定テキストが表示されない');
+    return true;
+  });
+
+  pbt.test('Speech_Recognizer: 候補を持たない結果でも従来どおり動く（後方互換）', function () {
+    var rig = makeRig();
+    rig.recognizer.enable();
+    // length を持たない（= 候補 1 個だけの）結果要素
+    rig.recognizer.__test.handleResult({
+      resultIndex: 0,
+      results: { length: 1, 0: { isFinal: true, 0: { transcript: 'アウト' } } }
+    });
+    assert.ok(rig.commands.length === 1 && rig.commands[0].type === 'MISS',
+      '候補数を持たない結果からコマンドを拾えない: ' + assert.format(rig.commands));
     return true;
   });
 
